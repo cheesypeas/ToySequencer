@@ -21,13 +21,19 @@ static void ScanKeys()
                 int key = keyMatrices[matrix].keyMap[in][out];
                 bool prevState = keyMatrices[matrix].keyStates[key].state;
                 bool curState = !digitalRead(keyMatrices[matrix].inPorts[in]);
+
                 if (curState != prevState)
                 {
                     keyMatrices[matrix].keyStates[key].stateChangeFlag = true;
                     keyMatrices[matrix].keyStates[key].state = curState;
                 }
+
                 digitalWrite(keyMatrices[matrix].outPorts[out], HIGH);
             }
+
+            pinMode(keyMatrices[matrix].inPorts[in], OUTPUT);
+            digitalWrite(keyMatrices[matrix].inPorts[in], HIGH);
+            pinMode(keyMatrices[matrix].inPorts[in], INPUT_PULLUP);
         }
     }
 }
