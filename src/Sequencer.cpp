@@ -1,7 +1,6 @@
 #include <stdint.h>
 
 #include "DueTimer.h"
-
 #include "Comms.h"
 #include "Controller.h"
 #include "Leds.h"
@@ -55,6 +54,7 @@ uint8_t numBeats = 8;
 bool activeChannels[NUM_CHANNELS] = {};
 uint32_t innerLoopLength = 0;
 uint32_t channelNumInnerLoops[NUM_CHANNELS] = {};
+uint32_t channelLoopOffset[NUM_CHANNELS] = {};
 volatile uint32_t numSteps = 0;
 volatile uint32_t curStep = 0;
 
@@ -98,6 +98,11 @@ static void DumpState()
     for (int i = 0; i < NUM_CHANNELS; i++)
     {
         PrintFormat("%d: %d\n", i, channelNumInnerLoops[i]);
+    }
+    PrintFormat("channelLoopOffset:\n");
+    for (int i = 0; i < NUM_CHANNELS; i++)
+    {
+        PrintFormat("%d: %d\n", i, channelLoopOffset[i]);
     }
     PrintFormat("curStep: %d\n", curStep);
     PrintFormat("numSteps: %d\n", numSteps);
@@ -191,6 +196,22 @@ static void Step()
 }
 
 
+static uint32_t GetMaxNumInnerLoops()
+{
+    uint32_t maxNumInnerLoops = 0;
+
+    for (int i = 0; i < NUM_CHANNELS; i++)
+    {
+        if (channelNumInnerLoops[i] > maxNumInnerLoops)
+        {
+            maxNumInnerLoops = channelNumInnerLoops[i];
+        }
+    }
+
+    return maxNumInnerLoops;
+}
+
+
 // Find all the midi events in notesAll which should be fired in the next step and 
 // stage them in midiEventsOut, ready to be fired.
 static void PrepareNextStep()
@@ -210,29 +231,54 @@ static void PrepareNextStep()
     // Clear down the list of staged midi events.
     memset(midiEventsOut, 0, sizeof(midiEventsOut));
 
+    if (nextStep % innerLoopLength == 0)
+    {
+        uint32_t curLoop = nextStep / innerLoopLength;
+        uint32_t numLoopsTotal = numSteps / innerLoopLength;
+
+        for (int chan = 0; chan < NUM_CHANNELS; chan++)
+        {
+            uint32_t loopOffset = channelLoopOffset[chan];
+            uint32_t numInnerLoops = channelNumInnerLoops[chan];
+
+            if ((loopOffset + numInnerLoops) % numLoopsTotal == curLoop)
+            {
+                loopOffset += numInnerLoops;
+                PrintFormat("Chan %d,loopOffset: %d\n", chan, loopOffset % (numSteps / innerLoopLength));
+            }
+            loopOffset = loopOffset % (numSteps / innerLoopLength);
+
+            channelLoopOffset[chan] = loopOffset;
+            channelNumInnerLoops[chan] = numInnerLoops;
+        }
+    }
+
     // Find midi events in notesAll which should be fired in the next step and stage them in midiEventsOut
     for (int note = 0; note < numNotesAll; note++)
     {
+        uint8_t channel = notesAll[note].noteOn.channel;
+
         // Check note on event for active channel
-        if (activeChannels[notesAll[note].noteOn.channel])   
+        if (activeChannels[channel])
         {
-            // Should it be fired this step?
-            if (nextStep % (channelNumInnerLoops[notesAll[note].noteOn.channel] * innerLoopLength) == notesAll[note].noteOnStep)
+            // Note offset allows smaller loops to repeat within larger loops
+            uint32_t noteOffset = (channelLoopOffset[channel] * innerLoopLength);
+
+            // Should noteOn be fired this step?
+            if (nextStep == (notesAll[note].noteOnStep + noteOffset) % numSteps)
             {
                 midiEventsOut[midiEventsOutCounter] = notesAll[note].noteOn;
                 midiEventsOutCounter++;
             }
-        }
-        // Check note off event for active channel
-        if (activeChannels[notesAll[note].noteOff.channel])
-        {
-            // Should it be fired this step?
-            if (nextStep % (channelNumInnerLoops[notesAll[note].noteOn.channel] * innerLoopLength) == notesAll[note].noteOffStep)
+
+            // Should noteOff be fired this step?
+            if (nextStep == (notesAll[note].noteOffStep + noteOffset) % numSteps)
             {
                 midiEventsOut[midiEventsOutCounter] = notesAll[note].noteOff;
                 midiEventsOutCounter++;
             }
         }
+
         // Ensure we don't overflow midiEventsOut
         if (midiEventsOutCounter >= MAX_MIDI_EVENTS_OUT)
         {
@@ -310,6 +356,7 @@ static void ResetSequencer()
     {
         activeChannels[chan] = true;
         channelNumInnerLoops[chan] = 0;
+        channelLoopOffset[chan] = 0;
     }
 
     ControllerChannelShift(NUM_CHANNELS * -1, false);
@@ -339,6 +386,7 @@ static void ClearChannelNotes(uint8_t channel)
     numNotesAll = localNumNotesAll;
 
     channelNumInnerLoops[channel] = 0;
+    channelLoopOffset[channel] = 0;
 }
 
 
@@ -397,7 +445,22 @@ static void ShiftNote(Note * output, Note * input, uint32_t stepsToShift)
 }
 
 
-// Shift notes at the end to the start to close unwanted gap
+// Shift all the notes in notesIn such that the first note starts in the first inner loop
+static void ShiftNotesInToStart(uint32_t numInnerLoops)
+{
+    if (notesIn[0].noteOnStep >= innerLoopLength)
+    {
+        uint32_t numLoopsToShift = notesIn[0].noteOnStep / innerLoopLength;
+
+        for (int i = 0; i < numNotesIn; i++)
+        {
+            ShiftNote(&notesIn[i], &notesIn[i], numLoopsToShift * innerLoopLength * -1);
+        }
+    }
+}
+
+
+// Shift notes that fall off the end of the loop to the start
 static void WrapNotesAround(uint32_t numInnerLoops)
 {
     for (int i = 0; i < numNotesIn; i++)
@@ -407,22 +470,6 @@ static void WrapNotesAround(uint32_t numInnerLoops)
             ShiftNote(&notesIn[i], &notesIn[i], numInnerLoops * innerLoopLength * -1);
         }
     }
-}
-
-
-static uint32_t GetMaxNumInnerLoops()
-{
-    uint32_t maxNumInnerLoops = 0;
-
-    for (int i = 0; i < NUM_CHANNELS; i++)
-    {
-        if (channelNumInnerLoops[i] > maxNumInnerLoops)
-        {
-            maxNumInnerLoops = channelNumInnerLoops[i];
-        }
-    }
-
-    return maxNumInnerLoops;
 }
 
 
@@ -562,15 +609,21 @@ void SequencerOkEvent()
                 // Write over whatever was stored in this channel previously
                 ClearChannelNotes(channel);
                 // Get the loop length from first noteOn to now.
-                uint32_t numInnerLoops = GetNearestQuantisePoint(notesIn[0].noteOnStep, innerLoopLength, localCurStep) / innerLoopLength; // TODO: simplify?
+                uint32_t numInnerLoops = GetNearestQuantisePoint(notesIn[0].noteOnStep, innerLoopLength, localCurStep) / innerLoopLength;
                 // Min number of loops is 1
                 if(numInnerLoops == 0)
                 {
                     numInnerLoops = 1;
                 }
+                // Shift notes so that start of loop is step 0 and use loop offset to compensate for the shift
+                uint32_t loopOffset = (notesIn[0].noteOnStep / innerLoopLength);
+                ShiftNotesInToStart(numInnerLoops);
+                // Some notes may have been chopped off by GetNearestQuantisePoint() these should be wrapped around to the start of the loop
                 WrapNotesAround(numInnerLoops);
                 channelNumInnerLoops[channel] = numInnerLoops;
-                numSteps = GetMaxNumInnerLoops() * innerLoopLength;
+                uint32_t maxNumInnerLoops = GetMaxNumInnerLoops();
+                channelLoopOffset[channel] = loopOffset % maxNumInnerLoops;
+                numSteps = maxNumInnerLoops * innerLoopLength;
                 StoreNotesIn();
                 SequencerChannelOnOff(channel, true);
                 ControllerChannelShift(1, true);
