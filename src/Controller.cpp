@@ -255,9 +255,8 @@ static void CycleNoteSuperSet()
 
 void MainButtonsInput(uint8_t key, bool state)
 {
-    #ifdef DEBUG
     PrintFormat("Main button %d %s\n", key, state ? "on" : "off");
-    #endif
+
     switch (key)
     {
         case 0:
@@ -290,9 +289,7 @@ void MainButtonsInput(uint8_t key, bool state)
 
 void OtherButtonsInput(uint8_t key, bool state)
 {
-    #ifdef DEBUG
     PrintFormat("Other button input: %d\n", key);
-    #endif
     if (state)
     {
         switch (key)
