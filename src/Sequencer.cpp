@@ -32,7 +32,7 @@ typedef struct Note_
     MidiEvent noteOff;
     uint32_t noteOffStep;
     bool complete;
-    uint32_t quantiseOffset;
+    int32_t quantiseOffset;
 }Note;
 
 enum SequencerState
@@ -60,7 +60,7 @@ bool activeChannels[NUM_CHANNELS] = {};
 uint32_t innerLoopLength = 0;
 uint32_t channelNumInnerLoops[NUM_CHANNELS] = {};
 uint32_t channelLoopOffset[NUM_CHANNELS] = {};
-uint32_t channelQuantiseDivisor[NUM_CHANNELS] = {};
+uint32_t channelQuantiseDivisorIndex[NUM_CHANNELS] = {};
 volatile uint32_t numSteps = 0;
 volatile uint32_t curStep = 0;
 
@@ -79,7 +79,7 @@ static void PrintNote(Note * note)
 
 static void DumpState()
 {
-    PrintFormat("********DUMP STATE********\n");
+    PrintFormat("********DUMP STATE********\n\n\n\n"); // The extra \n's are padding to prevent an alignment error TODO: Get to the bottom of this!
     PrintFormat("Sequencer State: %d\n", sequencerState);
     PrintFormat("\n");
     PrintFormat("notesAll (%d):\n", numNotesAll);
@@ -482,24 +482,27 @@ static void WrapNotesAround(uint32_t numInnerLoops)
 
 static void ApplyQuantisation(uint8_t channel)
 {
-    uint8_t quantiseDivisor = (channelQuantiseDivisor[channel] + 1) % NUM_QUANTISE_DIVISORS;
+    uint8_t quantiseDivisorIndex = (channelQuantiseDivisorIndex[channel] + 1) % NUM_QUANTISE_DIVISORS;
 
     for (int i = 0; i < numNotesAll; i++)
     {
         if (notesAll[i].noteOn.channel == channel)
         {
-            if (quantiseDivisor == NO_QUANTISE)
+            if (quantiseDivisors[quantiseDivisorIndex] == NO_QUANTISE)
             {
                 notesAll[i].quantiseOffset = 0;
             }
             else
             {
                 uint32_t numInnerLoops = channelNumInnerLoops[channel];
-                uint32_t quantisedStep = GetNearestQuantisePoint(0, (numInnerLoops * innerLoopLength) / quantiseDivisor, numInnerLoops * innerLoopLength);
-                notesAll[i].quantiseOffset = quantisedStep - notesAll[i].noteOnStep;
+                uint32_t quantaLength = (numInnerLoops * innerLoopLength) / quantiseDivisors[quantiseDivisorIndex];
+                uint32_t quantisedStep = GetNearestQuantisePoint(0, quantaLength, notesAll[i].noteOnStep);
+                notesAll[i].quantiseOffset = (int32_t)quantisedStep - (int32_t)notesAll[i].noteOnStep;
             }
         }
     }
+
+    channelQuantiseDivisorIndex[channel] = quantiseDivisorIndex;
 }
 
 
