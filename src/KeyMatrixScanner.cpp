@@ -29,11 +29,12 @@ static void ScanKeys()
                 }
 
                 digitalWrite(keyMatrices[matrix].outPorts[out], HIGH);
-            }
 
-            pinMode(keyMatrices[matrix].inPorts[in], OUTPUT);
-            digitalWrite(keyMatrices[matrix].inPorts[in], HIGH);
-            pinMode(keyMatrices[matrix].inPorts[in], INPUT_PULLUP);
+                pinMode(keyMatrices[matrix].inPorts[in], OUTPUT);
+                digitalWrite(keyMatrices[matrix].inPorts[in], HIGH);
+                pinMode(keyMatrices[matrix].inPorts[in], INPUT_PULLUP);
+
+            }
         }
     }
 }
