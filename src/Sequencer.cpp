@@ -12,7 +12,7 @@
 #define MAX_NOTES_IN           128
 #define MAX_MIDI_EVENTS_OUT    64
 #define MAX_STEPS              65536 //TODO: make this larger?
-#define NUM_QUANTISE_DIVISORS  6
+#define NUM_QUANTISE_DIVISORS  7
 #define NO_QUANTISE            -1
 
 #define INVALID_STEP        MAX_STEPS
@@ -43,7 +43,7 @@ enum SequencerState
 
 // Constants
 const uint32_t tickPeriod  = 2000; //us
-const int8_t quantiseDivisors[NUM_QUANTISE_DIVISORS] = {NO_QUANTISE, 16, 8, 4, 2, 1};
+const int8_t quantiseDivisors[NUM_QUANTISE_DIVISORS] = {NO_QUANTISE, 32, 16, 8, 4, 2, 1};
 
 
 // State Variables
@@ -77,7 +77,7 @@ static void PrintNote(Note * note)
 
 static void DumpState()
 {
-    PrintFormat("********DUMP STATE********\n\n\n"); // The extra \n's are padding to prevent an alignment error TODO: Get to the bottom of this!
+    PrintFormat("********DUMP STATE********\n\n"); // The extra \n's are padding to prevent an alignment error TODO: Get to the bottom of this!
     PrintFormat("Sequencer State: %d\n", sequencerState);
     PrintFormat("\n");
     PrintFormat("notesAll (%d):\n", numNotesAll);
@@ -227,11 +227,8 @@ static uint32_t DeduplicateMidiEvents(MidiEvent * events, uint32_t numEvents)
             // If there's a duplicate
             if (events[i].value == events[j].value && events[i].channel == events[i].channel)
             {
-                // Then delete it by shifting the rest of the entries down one
-                for (int k = j; k < numEvents; k++)
-                {
-                   events[k] = events[k + 1];
-                }
+                // Then delete it by shifting the last event into its place and decrementing numEvents
+                events[j--] = events[numEvents - 1];
                 numEvents--;
             }
         }
