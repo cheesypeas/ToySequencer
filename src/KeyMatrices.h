@@ -4,26 +4,28 @@
 #include "KeyMatrixScanner.h"
 #include "Sequencer.h"
 
-#define PIANO_KEYS_IN_1        42
-#define PIANO_KEYS_IN_2        40
-#define PIANO_KEYS_OUT_A       38
-#define PIANO_KEYS_OUT_B       36
-#define PIANO_KEYS_OUT_C       34
-#define PIANO_KEYS_OUT_D       32
 
-#define JOYSTICK_IN_1          37
+#define PIANO_KEYS_IN_1        38
+#define PIANO_KEYS_IN_2        40
+#define PIANO_KEYS_OUT_A       42
+#define PIANO_KEYS_OUT_B       44
+#define PIANO_KEYS_OUT_C       46
+#define PIANO_KEYS_OUT_D       48
+
+#define JOYSTICK_IN_1          43
 #define JOYSTICK_IN_2          41
 #define JOYSTICK_IN_3          39
-#define JOYSTICK_IN_4          35
+#define JOYSTICK_IN_4          37
 
-#define MAIN_BUTTON_0          27
-#define MAIN_BUTTON_1          29
-#define MAIN_BUTTON_2          31
-#define MAIN_BUTTON_3          33
+#define MAIN_BUTTON_0          33
+#define MAIN_BUTTON_1          31
+#define MAIN_BUTTON_2          25
+#define MAIN_BUTTON_3          23
 
-#define PURPLE_BUTTON_IN       53
-#define TURNTABLE_IN           25
-#define ROLLER_IN              43
+#define PURPLE_BUTTON_IN       35
+#define TURNTABLE_IN           49
+#define ROLLER_IN              53
+
 
 #define NUM_KEY_MATRICES       4
 
@@ -80,7 +82,7 @@ static KeyMatrix keyMatrices[NUM_KEY_MATRICES] =
     pianoKeys,
     joystick,
     mainButtons,
-    other
+    other,
 };
 
 

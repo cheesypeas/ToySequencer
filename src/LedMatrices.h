@@ -3,16 +3,16 @@
 #define PIANO_KEY_LED_MATRIX     0
 #define BIG_BUTTON_LED_MATRIX    1
 
-#define PIANO_KEY_LED_0          24
-#define PIANO_KEY_LED_1          26
+#define PIANO_KEY_LED_0          32
+#define PIANO_KEY_LED_1          30
 #define PIANO_KEY_LED_2          28
-#define PIANO_KEY_LED_3          30
+#define PIANO_KEY_LED_3          26
 
-#define PIANO_KEY_LED_A          44
-#define PIANO_KEY_LED_B          46
+#define PIANO_KEY_LED_A          24
+#define PIANO_KEY_LED_B          22
 
-#define BIG_BUTTON_LED_A         45
-#define BIG_BUTTON_LED_0         22
+#define BIG_BUTTON_LED_A         52
+#define BIG_BUTTON_LED_B         47
 
 #define NUM_LED_MATRICES         2
 
@@ -33,8 +33,8 @@ static const LedMatrix pianoKeyLeds =
 
 static const LedMatrix bigButtonLed = 
 {
-    {BIG_BUTTON_LED_0},
     {BIG_BUTTON_LED_A},
+    {BIG_BUTTON_LED_B},
     1,
     1,
     2,
@@ -42,7 +42,7 @@ static const LedMatrix bigButtonLed =
     {},
     0,
     0,
-    {0}   
+    {0}, 
 };
 
 LedMatrix ledMatrices[] = {pianoKeyLeds, bigButtonLed};
