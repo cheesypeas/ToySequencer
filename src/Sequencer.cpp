@@ -220,10 +220,6 @@ static uint32_t GetMaxNumInnerLoops()
 static uint32_t DeduplicateMidiEvents(MidiEvent * events, uint32_t numEvents)
 {
     // TODO: get rid of the noteOff events too
-    if (numEvents > 1)
-    {
-       PrintFormat("duplicates\n");
-    }
     for (int i = 0; i < numEvents; i++)
     {
         for (int j = i + 1; j < numEvents; j++)
