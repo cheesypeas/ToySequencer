@@ -3,16 +3,15 @@
 #include "Arduino.h"
 #include "Comms.h"
 
-//#define DEBUG
+#define DEBUG
 
 
 void CommsInit()
 {
     #ifdef DEBUG
-    Serial.begin(112500);
-    #else
-    Serial.begin(31250);
+    Serial1.begin(115200);
     #endif
+    Serial.begin(31250);
 }
 
 
@@ -25,8 +24,8 @@ void PrintFormat(const char * fmt, ... )
     //printf(fmt, args);
     vsnprintf(buf, 128, fmt, args);
     va_end (args);
-    
-    Serial.print(buf);
+
+    Serial1.print(buf);
     #endif
 }
 
@@ -43,32 +42,21 @@ void OutputMidiEvent(MidiEvent event)
     switch (event.type)
     {
         case MIDI_NOTE_ON:
-            #ifdef DEBUG
             PrintFormat("Channel %d, Note ON: ", event.channel);
-            #else
             Serial.write(0x90 | event.channel);
-            #endif
             break;
         case MIDI_NOTE_OFF:
-            #ifdef DEBUG
             PrintFormat("Channel %d, Note OFF: ", event.channel);
-            #else
             Serial.write(0x80 | event.channel);
-            #endif
             break;
         default:
-            #ifdef DEBUG
             PrintFormat("Unrecognised midi event, %d: ", event.type);
-            #endif
             return;
     }
 
-    #ifdef DEBUG
     PrintFormat("%d, vel: %d\n", event.value, event.velocity);
-    #else
     Serial.write(event.value);
     Serial.write(event.velocity);
-    #endif
 }
 
 
