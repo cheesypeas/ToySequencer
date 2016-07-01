@@ -12,9 +12,10 @@
 
 #define NUM_KEYS                     8
 #define NUM_NOTE_SETS                16
-#define NUM_CHANNELS                 8
 
 #define DEFAULT_VELOCITY             100
+
+//#define DEBUG
 
 enum ControllerMode
 {
@@ -119,7 +120,7 @@ void PianoKeyInput(uint8_t key, bool state)
             MidiEventType eventType = state ? MIDI_NOTE_ON : MIDI_NOTE_OFF;
             MidiEvent event = BuildMidiEvent(eventType, channelInFocus, localNoteSet[key] , DEFAULT_VELOCITY);
             ControllerOutputEvent(event);
-            SequencerInputEvent(event);
+            SequencerInputMidiEvent(event);
             break;
         }
         
@@ -233,7 +234,7 @@ static void CycleControllerMode()
 
 void MainButtonsInput(uint8_t key, bool state)
 {
-    #ifdef DEBUg
+    #ifdef DEBUG
     PrintFormat("Main button %d %s\n", key, state ? "on" : "off");
     #endif
     switch (key)
@@ -241,13 +242,13 @@ void MainButtonsInput(uint8_t key, bool state)
         case 0:
             if (state)
             {
-                SequencerTapTempo();
+                SequencerLoopEvent();
             }
             break;
         case 1:
             if (state)
             {
-                SequencerStartStop();
+                //
             }
             break;
         case 2:
@@ -259,7 +260,7 @@ void MainButtonsInput(uint8_t key, bool state)
         case 3:
             if (state)
             {
-                SequencerStoreLastCycle();
+                //
             }
             break;            
     }

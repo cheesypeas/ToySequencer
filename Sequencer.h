@@ -1,15 +1,13 @@
 #pragma once
 
-#define NUM_CHANNELS 16
+#define NUM_CHANNELS 8
 
-void SequencerInputEvent(MidiEvent event);
-void SequencerDeactivateNote(uint8_t key);
+void SequencerInputMidiEvent(MidiEvent event);
+void SequencerLoopEvent();
 void SequencerChannelOnOff(uint8_t channel);
 bool SequencerGetChannelOnOff(uint8_t channel);
-void SequencerTapTempo();
-void SequencerStartStop();
-void SequencerStoreLastCycle();
 void SequencerClearChannel(uint8_t channel);
 
-void SequencerInit();
+void SequencerReset();
 void SequencerBackgroundTasks();
+void SequencerInit();

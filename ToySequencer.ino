@@ -54,7 +54,6 @@ void setup()
     PrintMemUsage();
     
     StartupSequence();
-    SequencerStartStop();
 }
 
 
