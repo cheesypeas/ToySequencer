@@ -45,7 +45,7 @@ enum SequencerState
 };
 
 // Constants
-const uint32_t tickPeriod  = 4000; //us
+const uint32_t tickPeriod  = 2000; //us
 
 // State Variables
 volatile SequencerState sequencerState = SEQUENCER_READY;
@@ -280,7 +280,7 @@ void SequencerInputMidiEvent(MidiEvent midiEvent)
             MidiEventIn(midiEvent, localCurStep);
             break;
         case SEQUENCER_LOOP:
-            // do nothing
+            MidiEventIn(midiEvent, localCurStep);
             break;    
     }
 }
@@ -379,10 +379,22 @@ void SequencerClearChannel(uint8_t channel)
 }
 
 
+static ManageNotesIn()
+{
+    //uint32_t localCurStep = curStep;
+    
+    //if (localCurStep == 0)
+    //{
+    //    ClearNotesIn()
+    //}
+}
+
+
 void SequencerBackgroundTasks()
 {
     PrepareNextStep();
     FireCurrentStep();
+    ManageNotesIn();
 }
 
 
