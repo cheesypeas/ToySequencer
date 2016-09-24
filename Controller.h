@@ -1,3 +1,5 @@
+void ControllerChannelShift(int8_t shift, bool wraparound);
+int8_t ControllerGetCurrentChannel();
 void ControllerOutputEvent(MidiEvent event);
 void ControllerOutputChannelOnOff(uint8_t channel, bool on);
 void PianoKeyInput(uint8_t key, bool state);

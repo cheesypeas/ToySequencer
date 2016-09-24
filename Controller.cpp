@@ -12,8 +12,9 @@
 
 #define NUM_KEYS                     8
 #define NUM_NOTE_SETS                16
-
-#define DEFAULT_VELOCITY             100
+#define NOTE_SUPER_SET_SIZE          4 // number of joystick positions
+#define NUM_NOTE_SUPER_SETS          (NUM_NOTE_SETS / NOTE_SUPER_SET_SIZE)
+#define DEFAULT_VELOCITY             127
 
 //#define DEBUG
 
@@ -26,12 +27,15 @@ enum ControllerMode
     NUM_PIANO_KEY_MODES,
 };
 
-// A set of notes (NoteSet) is a group of notes assignable to keys 0 -> NUM_KEYS -1
+// A note set is a group of notes assignable to keys 0 -> NUM_KEYS -1
 uint8_t noteSets[NUM_NOTE_SETS][NUM_KEYS] = {};
 
 uint8_t controllerMode;
-int8_t channelInFocus = 0;  // per note
-int8_t setOfNotesInFocus[NUM_CHANNELS] = {}; //per note
+int8_t channelInFocus = 0;
+int8_t noteSetInFocus = 0;
+int8_t noteSuperSetInFocus = 0;
+
+bool shiftKeyPressed = false;
 
 
 static void RefreshLedOutput()
@@ -67,7 +71,7 @@ void LedOutputEvent(MidiEvent event)
         return;
     }
     
-    int noteSet = setOfNotesInFocus[event.channel];
+    int noteSet = noteSetInFocus;
 
     for (int key = 0; key < NUM_KEYS; key++)
     {
@@ -112,7 +116,7 @@ void ControllerOutputChannelOnOff(uint8_t channel, bool on)
 void PianoKeyInput(uint8_t key, bool state)
 {
     uint8_t localControllerMode = controllerMode;
-    uint8_t * localNoteSet = noteSets[setOfNotesInFocus[channelInFocus]];
+    uint8_t * localNoteSet = noteSets[noteSetInFocus];
     switch (localControllerMode)
     {
         case PLAY_NOTES:
@@ -128,7 +132,7 @@ void PianoKeyInput(uint8_t key, bool state)
         {
             if (state)
             {
-                SequencerChannelOnOff(key);
+                SequencerChannelOnOffToggle(key);
             }
             break;
         }
@@ -143,29 +147,29 @@ void PianoKeyInput(uint8_t key, bool state)
 static void SetOfNotesShift(int8_t shift)
 {
     int8_t channel = channelInFocus;
-    int8_t setOfNotes = setOfNotesInFocus[channel];
+    int8_t noteSet = noteSetInFocus;
 
     //TODO: if piano key pressed do something sensible like eg return and ignore press
     
-    setOfNotes += shift;
-    if (setOfNotes >= NUM_NOTE_SETS)
+    noteSet += shift;
+    if (noteSet >= NUM_NOTE_SETS)
     {
-        setOfNotes = NUM_NOTE_SETS - 1;
+        noteSet = NUM_NOTE_SETS - 1;
     }
-    else if (setOfNotes < 0)
+    else if (noteSet < 0)
     {
-        setOfNotes = 0;
+        noteSet = 0;
     }
        
-    setOfNotesInFocus[channel] = setOfNotes;
+    noteSetInFocus = noteSet;
     RefreshLedOutput();
     #ifdef DEBUG
-    PrintFormat("Note Set shift: setOfNotes: %d, channel: %d\n", setOfNotesInFocus[channel], channelInFocus);
+    PrintFormat("Note Set shift: noteSet: %d, channel: %d\n", noteSetInFocus, channelInFocus);
     #endif
 }
 
 
-static void ChannelShift(int8_t shift)
+void ControllerChannelShift(int8_t shift, bool wraparound)
 {
     int8_t channel = channelInFocus;
 
@@ -174,18 +178,25 @@ static void ChannelShift(int8_t shift)
     channel += shift;
     if (channel >= NUM_CHANNELS)
     {
-        channel = NUM_CHANNELS - 1;
+        channel = wraparound ? 0 : NUM_CHANNELS - 1;
     }
     else if (channel < 0)
     {
-        channel = 0;
+        channel = wraparound ? NUM_CHANNELS - 1 : 0;
     }
 
     channelInFocus = channel;
     RefreshLedOutput();
+    LedFlash(0, channel, 3);
     #ifdef DEBUG
-    PrintFormat("Channel shift: setOfNotes: %d, channel: %d\n", setOfNotesInFocus[channel], channelInFocus);
+    PrintFormat("Channel shift: noteSet: %d, channel: %d\n", noteSetInFocus, channelInFocus);
     #endif
+}
+
+
+int8_t ControllerGetCurrentChannel()
+{
+    return channelInFocus;
 }
 
 
@@ -196,16 +207,16 @@ void JoystickInput(uint8_t key, bool state)
         switch (key)
         {
             case JOYSTICK_L:
-                SetOfNotesShift(-1);
+                noteSetInFocus = noteSuperSetInFocus * NOTE_SUPER_SET_SIZE + 0;
                 break;
             case JOYSTICK_R:
-                SetOfNotesShift(1);
+                noteSetInFocus = noteSuperSetInFocus * NOTE_SUPER_SET_SIZE + 1;
                 break;
             case JOYSTICK_D:
-                ChannelShift(-1);
+                noteSetInFocus = noteSuperSetInFocus * NOTE_SUPER_SET_SIZE + 2;
                 break;
             case JOYSTICK_U:
-                ChannelShift(1);
+                noteSetInFocus = noteSuperSetInFocus * NOTE_SUPER_SET_SIZE + 3;
                 break; 
         }
         PrintFormat("Joystick on: %d\n", key);
@@ -232,6 +243,16 @@ static void CycleControllerMode()
 }
 
 
+static void CycleNoteSuperSet()
+{
+    noteSuperSetInFocus = (noteSuperSetInFocus + 1) % NUM_NOTE_SUPER_SETS;
+    noteSetInFocus = (noteSetInFocus + NOTE_SUPER_SET_SIZE) % NUM_NOTE_SETS;
+
+    PrintFormat("noteSuperSetInFocus: %d\n", noteSuperSetInFocus);
+    PrintFormat("noteSetInFocus: %d\n", noteSetInFocus);
+}
+
+
 void MainButtonsInput(uint8_t key, bool state)
 {
     #ifdef DEBUG
@@ -242,13 +263,13 @@ void MainButtonsInput(uint8_t key, bool state)
         case 0:
             if (state)
             {
-                SequencerLoopEvent();
+                SequencerOkEvent();
             }
             break;
         case 1:
             if (state)
             {
-                //
+                SequencerClear(channelInFocus);
             }
             break;
         case 2:
@@ -260,7 +281,7 @@ void MainButtonsInput(uint8_t key, bool state)
         case 3:
             if (state)
             {
-                //
+                
             }
             break;            
     }
@@ -277,11 +298,13 @@ void OtherButtonsInput(uint8_t key, bool state)
         switch (key)
         {
             case 0: // Big button
+                PrintFormat("Big button pressed");
                 break;
             case 1: // Turntable
-                SequencerClearChannel(channelInFocus);
+                SequencerReset();
                 break;
             case 2: // Roller ball
+                CycleNoteSuperSet();
                 break;
             default:
                 break;
@@ -308,10 +331,6 @@ void InitNoteSetsSequential()
 void ControllerInit()
 {
     InitNoteSetsSequential();
-    for (int i = 0; i < NUM_CHANNELS; i++)
-    {
-        setOfNotesInFocus[i] = 7;
-    }
 }
 
 

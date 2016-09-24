@@ -5,6 +5,7 @@
 #include "Leds.h"
 #include "LedMatrices.h"
 
+// todo: int to intx_t ? 
 
 void LedOnOff(int matrix, int led, bool state)
 {
@@ -23,6 +24,11 @@ void LedOff(int matrix, int led)
     LedOnOff(matrix, led, false);
 }
 
+
+void LedFlash(int matrix, int led, int numFlashes)
+{
+    ledMatrices[matrix].numFlashes[led] = numFlashes;
+}
 
 void LedPwm()
 {
@@ -51,6 +57,25 @@ void LedPwm()
 }
 
 
+void LedFlasher()
+{
+    for (int matrix = 0; matrix < NUM_LED_MATRICES; matrix++)
+    {
+        for (int led = 0; led < ledMatrices[matrix].numLeds; led++)
+        {
+            if (ledMatrices[matrix].numFlashes[led] > 0)
+            {
+                ledMatrices[matrix].ledStates[led] = !ledMatrices[matrix].ledStates[led];
+                if (!ledMatrices[matrix].ledStates[led])
+                {
+                    ledMatrices[matrix].numFlashes[led]--;
+                }
+            }
+        }
+    }
+}
+
+
 void LedsInit()
 {
     for (int matrix = 0; matrix < NUM_LED_MATRICES; matrix++)
@@ -67,5 +92,6 @@ void LedsInit()
         }
     }
     Timer3.attachInterrupt(LedPwm).start(5000);
+    Timer4.attachInterrupt(LedFlasher).start(61000);
 }
 

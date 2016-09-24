@@ -18,9 +18,6 @@
 
 #define INVALID_STEP        -1
 
-#define CLICK_NOTE_VALUE    65
-#define CLICK_CHANNEL       7
-
 // Error Codes
 #define ESTEPNOTPREPARED    -1
 #define EMAXMIDIEVENTSOUT   -2
@@ -31,9 +28,9 @@
 typedef struct Note_
 {
     MidiEvent noteOn;
-    uint16_t noteOnStep;
+    uint32_t noteOnStep;
     MidiEvent noteOff;
-    uint16_t noteOffStep;
+    uint32_t noteOffStep;
     bool complete;
 }Note;
 
@@ -58,11 +55,15 @@ uint8_t numMidiEventsOut          = 0;
 uint8_t numBeats                  = 8;
 bool activeChannels[NUM_CHANNELS] = {};
 volatile uint32_t numSteps        = 0;
-volatile uint16_t curStep         = 0;
+volatile uint32_t curStep         = 0;
 
 // Flags
 volatile bool nextStepPreparedFlag = false;
 volatile bool fireStepFlag = false;
+
+int8_t repeaterSpacing = 1;
+int8_t numRepeats = 0;
+int8_t repeaterOn = false;
 
 
 static void Error(int errorCode)
@@ -86,7 +87,7 @@ static void ClearNotesAll()
 }
 
 
-static void MidiEventIn(MidiEvent event, uint32_t step)
+static void MidiEventNoteIn(MidiEvent event, uint32_t step)
 {
     if (event.type == MIDI_NOTE_ON)
     {
@@ -150,6 +151,11 @@ static void Step()
 }
 
 
+static bool RepeatNoteYesOrNo(uint32_t noteStep, uint32_t curStep)
+{
+    
+}
+
 static void PrepareNextStep()
 {
     if (nextStepPreparedFlag)
@@ -164,14 +170,14 @@ static void PrepareNextStep()
 
     for (int note = 0; note < numNotesAll; note++)
     {
-        if (notesAll[note].noteOnStep == nextStep &&
-            activeChannels[notesAll[note].noteOn.channel])
+        if (activeChannels[notesAll[note].noteOn.channel] &&
+            notesAll[note].noteOnStep == nextStep)
         {
             midiEventsOut[midiEventsOutCounter] = notesAll[note].noteOn;
             midiEventsOutCounter++;
         }
-        if (notesAll[note].noteOffStep == nextStep &&
-            activeChannels[notesAll[note].noteOff.channel])
+        if (activeChannels[notesAll[note].noteOff.channel] &&
+            notesAll[note].noteOffStep == nextStep)
         {
             midiEventsOut[midiEventsOutCounter] = notesAll[note].noteOff;
             midiEventsOutCounter++;
@@ -183,12 +189,26 @@ static void PrepareNextStep()
         }
     }
 
+    /*
+    for (int note = 0; note < numNotesAll; note++)
+    {   
+        if (activeChannels[notesAll[note].noteOn.channel] &&
+            localRepeaterOn &&
+            RepeatNoteYesOrNo(notesAll[note].noteOnStep, nextStep)
+        {
+            midiEventsOut[midiEventsOutCounter] = notesAll[note].noteOn;
+            midiEventsOutCounter++;
+        }
+        if (activeChannel[notes
+    }
+    */
+    
     numMidiEventsOut = midiEventsOutCounter;
     nextStepPreparedFlag = true;
 }
 
 
-void FireCurrentStep()
+static void FireCurrentStep()
 {
     if (!fireStepFlag)
     {
@@ -261,57 +281,79 @@ static void StateTransition(SequencerState state)
 }
 
 
-void SequencerInputMidiEvent(MidiEvent midiEvent)
+static void JumpToStep(uint32_t st)
 {
-    uint32_t localCurStep = curStep;
+    nextStepPreparedFlag = false;
+    curStep = abs(st - 1) % numSteps; // go to previous step to allow step to be prepared
 
-    switch(sequencerState)
-    {
-        case SEQUENCER_READY:
-            curStep = 0;
-            numSteps = MAX_STEPS;
-            ClearNotesIn();
-            ClearNotesAll();
-            MidiEventIn(midiEvent, 0);
-            Timer2.start();
-            StateTransition(SEQUENCER_INITIAL_RECORD);
-            break;
-        case SEQUENCER_INITIAL_RECORD:
-            MidiEventIn(midiEvent, localCurStep);
-            break;
-        case SEQUENCER_LOOP:
-            MidiEventIn(midiEvent, localCurStep);
-            break;    
-    }
+    PrintFormat("Jumping to step %d\n", curStep);
 }
 
 
-void SequencerLoopEvent()
+static void ResetSequencer()
 {
-    uint32_t localCurStep = curStep;
+    Timer2.stop();
+    ClearNotesIn();
+    ClearNotesAll();
+    curStep = 0;
+    numSteps = 0;
     
-    switch(sequencerState)
+    // initialise activeChannels
+    for (int chan = 0; chan < NUM_CHANNELS; chan++)
     {
-        case SEQUENCER_READY:
-            // do nothing
-            break;
-        case SEQUENCER_INITIAL_RECORD:
-            numSteps = localCurStep + 1;
-            StoreNotesIn();
-            nextStepPreparedFlag = false;
-            StateTransition(SEQUENCER_LOOP);
-            break;
-        case SEQUENCER_LOOP:
-            nextStepPreparedFlag = false;
-            numSteps = localCurStep + 1;
-            break;    
+        activeChannels[chan] = true;
     }
+    
+    StateTransition(SEQUENCER_READY);
+    ControllerChannelShift(NUM_CHANNELS * -1, false);
+    // todo: refresh led output
 }
 
 
-void SequencerChannelOnOff(uint8_t channel)
+// Deletes all notes for the given channel
+static void ClearChannel(uint8_t channel)
 {
-    activeChannels[channel] = !activeChannels[channel];
+    uint8_t localNumNotesAll = numNotesAll;
+    
+    // delete notes by moving elements from the end into their position
+    // and decrementing numNotesAll
+    #ifdef DEBUG
+    PrintFormat("Clear down channel %d\n", channel);
+    #endif
+    for (int note = 0; note < localNumNotesAll; note++)
+    {
+        if (notesAll[note].noteOn.channel == channel)
+        {
+            notesAll[note--] = notesAll[numNotesAll - 1];
+            localNumNotesAll--;
+        }
+    }
+
+    numNotesAll = localNumNotesAll;
+}
+
+
+static uint32_t GetNearestBar()
+{
+    uint32_t localCurStep = curStep;
+    uint8_t barLength = numSteps / 16; // TODO: base this on numSteps? eg > x steps use 32 bars type of heuristic
+
+    uint32_t floor = localCurStep / barLength;
+    uint32_t remainder = localCurStep % barLength;
+
+    return remainder > barLength / 2 ? floor * barLength : (floor - 1) * barLength;  
+}
+
+
+void SequencerChannelOnOff(uint8_t channel, bool on)
+{
+    // todo: local activeChannels?
+    if (activeChannels[channel] == on)
+    {
+        return;
+    }
+    
+    activeChannels[channel] = on;
     ControllerOutputChannelOnOff(channel, activeChannels[channel]);
 
     // Prevent hanging notes if channel deactivated during a note
@@ -331,47 +373,112 @@ void SequencerChannelOnOff(uint8_t channel)
 }
 
 
+void SequencerChannelOnOffToggle(uint8_t channel)
+{
+    SequencerChannelOnOff(channel, !activeChannels[channel]);
+}
+
+
+void SequencerInputMidiEvent(MidiEvent midiEvent)
+{
+    uint32_t localCurStep = curStep;
+
+    switch(sequencerState)
+    {
+        case SEQUENCER_READY:
+            curStep = 0;
+            numSteps = MAX_STEPS;
+            ClearNotesIn();
+            ClearNotesAll();
+            MidiEventNoteIn(midiEvent, 0);
+            Timer2.start();
+            StateTransition(SEQUENCER_INITIAL_RECORD);
+            break;
+        case SEQUENCER_INITIAL_RECORD:
+            MidiEventNoteIn(midiEvent, localCurStep);
+            break;
+        case SEQUENCER_LOOP:
+            SequencerChannelOnOff(midiEvent.channel, false); // disable channel to improvise over the top
+            if (numNotesAll == 0)
+            {
+                ResetSequencer();
+            }
+            MidiEventNoteIn(midiEvent, localCurStep);
+            break;    
+    }
+}
+
+
+void SequencerOkEvent()
+{
+    uint32_t localCurStep = curStep;
+    
+    switch(sequencerState)
+    {
+        case SEQUENCER_READY:
+            // do nothing
+            break;
+        case SEQUENCER_INITIAL_RECORD:
+            numSteps = localCurStep + 1;
+            PrintFormat("numSteps: %d\n", numSteps);
+            StoreNotesIn();
+            nextStepPreparedFlag = false;
+            StateTransition(SEQUENCER_LOOP);
+            ControllerChannelShift(1, true);
+            break;
+        case SEQUENCER_LOOP:
+            if (numNotesIn == 0)
+            {
+                JumpToStep(GetNearestBar());
+            }
+            else
+            {
+                nextStepPreparedFlag = false;
+                uint8_t channel = ControllerGetCurrentChannel();
+                ClearChannel(channel);
+                StoreNotesIn();
+                SequencerChannelOnOff(channel, true);
+                ControllerChannelShift(1, true);
+            }
+            break;    
+    }
+}
+
+
+void SequencerRepeaterOnOff(bool on)
+{
+    repeaterOn = on;
+}
+
+
 bool SequencerGetChannelOnOff(uint8_t channel)
 {
     return activeChannels[channel];    
 }
 
 
-void ResetSequencer()
+void SequencerTapTempo()
 {
-    Timer2.stop();
-    ClearNotesIn();
-    ClearNotesAll();
-    curStep = 0;
-    numSteps = 0;
     
-    // initialise activeChannels
-    for (int chan = 0; chan < NUM_CHANNELS; chan++)
-    {
-        activeChannels[chan] = true;
-    }
-    
-    StateTransition(SEQUENCER_READY);
 }
 
 
-// Deletes all notes for the given channel
-// If there are no more notes afterwards, reset.
-void SequencerClearChannel(uint8_t channel)
+void SequencerClear(uint8_t channel)
 {
-    // delete notes by moving elements from the end into their position
-    // and decrementing numNotesAll
-    #ifdef DEBUG
-    PrintFormat("Clear down channel %d\n", channel);
-    #endif
-    for (int note = 0; note < numNotesAll; note++)
+    // todo: incorporate into state machine
+    
+    uint8_t localNumNotesIn = numNotesIn;
+
+    if (localNumNotesIn == 0)
     {
-        if (notesAll[note].noteOn.channel == channel)
-        {
-            notesAll[note--] = notesAll[numNotesAll - 1];
-            numNotesAll--;
-        }
+        ClearChannel(channel);
+        ControllerChannelShift(-1, false);
     }
+    else 
+    {
+        ClearNotesIn();
+    }
+    
     if (numNotesAll == 0)
     {
         ResetSequencer();
@@ -379,14 +486,10 @@ void SequencerClearChannel(uint8_t channel)
 }
 
 
-static ManageNotesIn()
+void SequencerReset()
 {
-    //uint32_t localCurStep = curStep;
-    
-    //if (localCurStep == 0)
-    //{
-    //    ClearNotesIn()
-    //}
+    // todo: incorporate into state machine?
+    ResetSequencer();
 }
 
 
@@ -394,7 +497,6 @@ void SequencerBackgroundTasks()
 {
     PrepareNextStep();
     FireCurrentStep();
-    ManageNotesIn();
 }
 
 
