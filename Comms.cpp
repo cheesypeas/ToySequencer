@@ -18,7 +18,7 @@ void CommsInit()
 }
 
 
-void PrintFormat(char *fmt, ... )
+void PrintFormat(const char * fmt, ... )
 {
     #ifdef DEBUG
     char buf[128]; // resulting string limited to 128 chars

@@ -16,7 +16,7 @@
 
 #define MIN_TICK_PERIOD     1000    //TODO: use this limit
 
-#define INVALID_STEP        -1
+#define INVALID_STEP        MAX_STEPS
 
 // Error Codes
 #define ESTEPNOTPREPARED    -1
@@ -61,15 +61,12 @@ volatile uint32_t curStep         = 0;
 volatile bool nextStepPreparedFlag = false;
 volatile bool fireStepFlag = false;
 
-int8_t repeaterSpacing = 1;
-int8_t numRepeats = 0;
-int8_t repeaterOn = false;
-
 
 static void Error(int errorCode)
 {
     PrintFormat("Error: %d\n", errorCode);
-    // todo: Flash leds to signify error
+    // todo: Flash leds to signify error?
+    // Or special midi signal?
 }
 
 
@@ -98,7 +95,7 @@ static void MidiEventNoteIn(MidiEvent event, uint32_t step)
                 event,
                 step,
                 {},
-                INVALID_STEP,
+                step,  // Set to same as noteOnStep as placeholder
                 false,
             };
             notesIn[numNotesIn] = noteIn;
@@ -151,11 +148,6 @@ static void Step()
 }
 
 
-static bool RepeatNoteYesOrNo(uint32_t noteStep, uint32_t curStep)
-{
-    
-}
-
 static void PrepareNextStep()
 {
     if (nextStepPreparedFlag)
@@ -188,20 +180,6 @@ static void PrepareNextStep()
             break;
         }
     }
-
-    /*
-    for (int note = 0; note < numNotesAll; note++)
-    {   
-        if (activeChannels[notesAll[note].noteOn.channel] &&
-            localRepeaterOn &&
-            RepeatNoteYesOrNo(notesAll[note].noteOnStep, nextStep)
-        {
-            midiEventsOut[midiEventsOutCounter] = notesAll[note].noteOn;
-            midiEventsOutCounter++;
-        }
-        if (activeChannel[notes
-    }
-    */
     
     numMidiEventsOut = midiEventsOutCounter;
     nextStepPreparedFlag = true;
@@ -445,21 +423,9 @@ void SequencerOkEvent()
 }
 
 
-void SequencerRepeaterOnOff(bool on)
-{
-    repeaterOn = on;
-}
-
-
 bool SequencerGetChannelOnOff(uint8_t channel)
 {
     return activeChannels[channel];    
-}
-
-
-void SequencerTapTempo()
-{
-    
 }
 
 

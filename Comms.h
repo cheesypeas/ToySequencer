@@ -17,5 +17,5 @@ typedef struct MidiEvent_
 MidiEvent BuildMidiEvent(MidiEventType midiEventType, uint8_t channel, uint8_t value, uint8_t velocity);
 
 void CommsInit();
-void PrintFormat(char *fmt, ... );
+void PrintFormat(const char * fmt, ... );
 void OutputMidiEvent(MidiEvent event);
