@@ -14,8 +14,6 @@
 #define MAX_MIDI_EVENTS_OUT 64
 #define MAX_STEPS           65536
 
-#define MIN_TICK_PERIOD     1000    //TODO: use this limit
-
 #define INVALID_STEP        MAX_STEPS
 
 // Error Codes
@@ -119,7 +117,7 @@ static void MidiEventNoteIn(MidiEvent event, uint32_t step)
 }
 
 
-//todo: data integrity check?
+// TODO: data integrity check?
 // orphaned events
 // channels not matching in a note
 
@@ -148,18 +146,26 @@ static void Step()
 }
 
 
+// Find all the midi events in notesAll which should be fired in the next step and 
+// stage them in midiEventsOut, ready to be fired.
 static void PrepareNextStep()
 {
+    // Only prepare the next step if it isn't prepared already.
     if (nextStepPreparedFlag)
     {
         return;
     }
     
-    uint16_t nextStep = (curStep + 1) % numSteps;    // use a local copy in case curStep value changes
-    uint8_t midiEventsOutCounter = 0;
+    // Store the next step locally, wrapping around to zero if we've reached the last step.
+    uint16_t nextStep = (curStep + 1) % numSteps;
    
+    // Number of midi events staged for the next step.
+    uint8_t midiEventsOutCounter = 0;
+    
+    // Clear down the list of staged midi events.
     memset(midiEventsOut, 0, sizeof(midiEventsOut));
 
+    // Find midi events in notesAll which should be fired in the next step and stage them in midiEventsOut
     for (int note = 0; note < numNotesAll; note++)
     {
         if (activeChannels[notesAll[note].noteOn.channel] &&
