@@ -376,7 +376,7 @@ void SequencerInputMidiEvent(MidiEvent midiEvent)
             MidiEventNoteIn(midiEvent, localCurStep);
             break;
         case SEQUENCER_LOOP:
-            SequencerChannelOnOff(midiEvent.channel, false); // disable channel to improvise over the top
+            SequencerChannelOnOff(midiEvent.channel, false); // disable channel while writing over it
             if (numNotesAll == 0)
             {
                 ResetSequencer();
