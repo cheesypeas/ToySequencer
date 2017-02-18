@@ -168,18 +168,21 @@ static void PrepareNextStep()
     // Find midi events in notesAll which should be fired in the next step and stage them in midiEventsOut
     for (int note = 0; note < numNotesAll; note++)
     {
+        // Check note on event for: active channel and step==nextStep
         if (activeChannels[notesAll[note].noteOn.channel] &&
             notesAll[note].noteOnStep == nextStep)
         {
             midiEventsOut[midiEventsOutCounter] = notesAll[note].noteOn;
             midiEventsOutCounter++;
         }
+        // Check note off event for: active channel and step==nextStep
         if (activeChannels[notesAll[note].noteOff.channel] &&
             notesAll[note].noteOffStep == nextStep)
         {
             midiEventsOut[midiEventsOutCounter] = notesAll[note].noteOff;
             midiEventsOutCounter++;
         }
+        // Ensure we don't overflow midiEventsOut
         if (midiEventsOutCounter >= MAX_MIDI_EVENTS_OUT)
         {
             Error(EMAXMIDIEVENTSOUT);
