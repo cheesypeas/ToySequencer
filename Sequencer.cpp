@@ -63,7 +63,7 @@ volatile bool fireStepFlag = false;
 static void Error(int errorCode)
 {
     PrintFormat("Error: %d\n", errorCode);
-    // todo: Flash leds to signify error?
+    // TODO: Flash leds to signify error?
     // Or special midi signal?
 }
 
@@ -157,7 +157,7 @@ static void PrepareNextStep()
     }
     
     // Store the next step locally, wrapping around to zero if we've reached the last step.
-    uint16_t nextStep = (curStep + 1) % numSteps;
+    uint32_t nextStep = (curStep + 1) % numSteps;
    
     // Number of midi events staged for the next step.
     uint8_t midiEventsOutCounter = 0;
@@ -195,23 +195,26 @@ static void PrepareNextStep()
 }
 
 
+// Output all the staged midiEvents for the current step.
 static void FireCurrentStep()
 {
+    // Ensures step is not fired twice.
     if (!fireStepFlag)
     {
         return;
     }
 
+    // Flash big button LED to indicate start of loop
     if (curStep == 0)
     {
         LedOn(1, 0);
     }
-
     if (curStep == 32)
     {
         LedOff(1, 0);
     }
     
+    // if this step is prepared, then output all the midi events staged in midiEventsOut
     if (nextStepPreparedFlag)
     {         
         int localNumMidiEventsOut = numMidiEventsOut;
@@ -320,18 +323,19 @@ static void ClearChannel(uint8_t channel)
 }
 
 
-static uint32_t GetNearestBar()
+// Divides the loop up evenly and finds the closest point to given step
+static uint32_t GetNearestQuantisePoint(uint32_t divisor, uint32_t step)
 {
-    uint32_t localCurStep = curStep;
-    uint8_t barLength = numSteps / 16; // TODO: base this on numSteps? eg > x steps use 32 bars type of heuristic
+    uint32_t barLength = numSteps / divisor;
 
-    uint32_t floor = localCurStep / barLength;
-    uint32_t remainder = localCurStep % barLength;
+    uint32_t floor = step / barLength;
+    uint32_t remainder = step % barLength;
 
     return remainder > barLength / 2 ? floor * barLength : (floor - 1) * barLength;  
 }
 
 
+// Mark a channel as active / inactive
 void SequencerChannelOnOff(uint8_t channel, bool on)
 {
     // todo: local activeChannels?
@@ -386,10 +390,6 @@ void SequencerInputMidiEvent(MidiEvent midiEvent)
             break;
         case SEQUENCER_LOOP:
             SequencerChannelOnOff(midiEvent.channel, false); // disable channel while writing over it
-            if (numNotesAll == 0)
-            {
-                ResetSequencer();
-            }
             MidiEventNoteIn(midiEvent, localCurStep);
             break;    
     }
@@ -416,7 +416,7 @@ void SequencerOkEvent()
         case SEQUENCER_LOOP:
             if (numNotesIn == 0)
             {
-                JumpToStep(GetNearestBar());
+                JumpToStep(GetNearestQuantisePoint(16, localCurStep));
             }
             else
             {
