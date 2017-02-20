@@ -12,7 +12,7 @@
 #define MAX_NOTES_ALL       256    
 #define MAX_NOTES_IN        128
 #define MAX_MIDI_EVENTS_OUT 64
-#define MAX_STEPS           65536
+#define MAX_STEPS           65536 //TODO: make this larger?
 
 #define INVALID_STEP        MAX_STEPS
 
@@ -47,13 +47,14 @@ volatile SequencerState sequencerState = SEQUENCER_READY;
 Note notesAll[MAX_NOTES_ALL] = {}; // TODO: volatile
 Note notesIn[MAX_NOTES_IN] = {};
 MidiEvent midiEventsOut[MAX_MIDI_EVENTS_OUT] = {};
-uint8_t numNotesAll               = 0;
-uint8_t numNotesIn                = 0;
-uint8_t numMidiEventsOut          = 0;
-uint8_t numBeats                  = 8;
+uint8_t numNotesAll = 0;
+uint8_t numNotesIn = 0;
+uint8_t numMidiEventsOut = 0;
+uint8_t numBeats = 8;
 bool activeChannels[NUM_CHANNELS] = {};
-volatile uint32_t numSteps        = 0;
-volatile uint32_t curStep         = 0;
+uint32_t channelLoopPoints[NUM_CHANNELS] = {};
+volatile uint32_t numSteps = 0;
+volatile uint32_t curStep = 0;
 
 // Flags
 volatile bool nextStepPreparedFlag = false;
@@ -67,6 +68,20 @@ static void Error(int errorCode)
     // Or special midi signal?
 }
 
+
+static uint32_t GetOuterLoopPoint()
+{
+    uint32_t referenceLoopPoint = 0;
+    
+    for (int i = 0; i < NUM_CHANNELS; i++)
+    {
+        if (channelLoopPoints[i] > referenceLoopPoint)
+        {
+            referenceLoopPoint = channelLoopPoints[i];
+        }
+    }
+    return referenceLoopPoint;
+}
 
 static void ClearNotesIn()
 {
@@ -168,19 +183,25 @@ static void PrepareNextStep()
     // Find midi events in notesAll which should be fired in the next step and stage them in midiEventsOut
     for (int note = 0; note < numNotesAll; note++)
     {
-        // Check note on event for: active channel and step==nextStep
-        if (activeChannels[notesAll[note].noteOn.channel] &&
-            notesAll[note].noteOnStep == nextStep)
+        // Check note on event for active channel
+        if (activeChannels[notesAll[note].noteOn.channel])   
         {
-            midiEventsOut[midiEventsOutCounter] = notesAll[note].noteOn;
-            midiEventsOutCounter++;
+            // Should it be fired this step?
+            if (nextStep % channelLoopPoints[notesAll[note].noteOn.channel] == notesAll[note].noteOnStep)
+            {
+                midiEventsOut[midiEventsOutCounter] = notesAll[note].noteOn;
+                midiEventsOutCounter++;
+            }
         }
-        // Check note off event for: active channel and step==nextStep
-        if (activeChannels[notesAll[note].noteOff.channel] &&
-            notesAll[note].noteOffStep == nextStep)
+        // Check note off event for active channel
+        if (activeChannels[notesAll[note].noteOff.channel])
         {
-            midiEventsOut[midiEventsOutCounter] = notesAll[note].noteOff;
-            midiEventsOutCounter++;
+            // Should it be fired this step?
+            if (nextStep % channelLoopPoints[notesAll[note].noteOn.channel] == notesAll[note].noteOffStep)
+            {
+                midiEventsOut[midiEventsOutCounter] = notesAll[note].noteOff;
+                midiEventsOutCounter++;
+            }
         }
         // Ensure we don't overflow midiEventsOut
         if (midiEventsOutCounter >= MAX_MIDI_EVENTS_OUT)
@@ -236,41 +257,6 @@ static void FireCurrentStep()
 }
 
 
-static void StateTransition(SequencerState state)
-{
-    switch(state)
-    {
-        case SEQUENCER_READY:
-        {
-            #ifdef DEBUG
-            PrintFormat("Sequencer ready\n");
-            #endif
-            sequencerState = SEQUENCER_READY;
-            break;
-        }
-        case SEQUENCER_INITIAL_RECORD:
-        {
-            #ifdef DEBUG
-            PrintFormat("Sequencer initial record\n");
-            #endif
-            sequencerState = SEQUENCER_INITIAL_RECORD;
-            break;
-        }
-        case SEQUENCER_LOOP:
-        {
-            #ifdef DEBUG
-            PrintFormat("Sequencer loop\n");
-            #endif
-            sequencerState = SEQUENCER_LOOP;
-            break;
-        }
-        default:
-            //todo Error()
-            break;   
-    }
-}
-
-
 static void JumpToStep(uint32_t st)
 {
     nextStepPreparedFlag = false;
@@ -294,9 +280,8 @@ static void ResetSequencer()
         activeChannels[chan] = true;
     }
     
-    StateTransition(SEQUENCER_READY);
     ControllerChannelShift(NUM_CHANNELS * -1, false);
-    // todo: refresh led output
+    // TODO: refresh led output
 }
 
 
@@ -323,15 +308,53 @@ static void ClearChannel(uint8_t channel)
 }
 
 
-// Divides the loop up evenly and finds the closest point to given step
-static uint32_t GetNearestQuantisePoint(uint32_t divisor, uint32_t step)
+// Divides the loop up evenly and finds the closest quantise point to given step
+static uint32_t GetNearestQuantisePoint(uint32_t quantaLength, uint32_t step)
 {
-    uint32_t barLength = numSteps / divisor;
+    uint32_t floor = step / quantaLength;
+    uint32_t remainder = step % quantaLength;
 
-    uint32_t floor = step / barLength;
-    uint32_t remainder = step % barLength;
+    return remainder > quantaLength / 2 ? (floor + 1) * quantaLength : floor * quantaLength;  
+}
 
-    return remainder > barLength / 2 ? floor * barLength : (floor - 1) * barLength;  
+
+// Divides the loop up evenly and finds the next quantise point to given step
+static uint32_t GetNextQuantisePoint(uint32_t quantaLength, uint32_t step)
+{
+    uint32_t floor = step / quantaLength;
+
+    return (floor + 1) * quantaLength;
+}
+
+
+// Divides the loop up evenly and finds the previous quantise point to given step
+static uint32_t GetPrevQuantisePoint(uint32_t quantaLength, uint32_t step)
+{
+    uint32_t floor = step / quantaLength;
+
+    return floor * quantaLength;
+}
+
+
+static uint32_t DetermineLoopPoint(uint32_t localCurStep)
+{
+    uint32_t referenceLoopPoint = channelLoopPoints[0];
+        
+    uint32_t maxPhraseSize = 32;
+    uint32_t phraseSize;
+    uint32_t numLoops = GetNearestQuantisePoint(referenceLoopPoint, localCurStep) / referenceLoopPoint;
+    
+    for (phraseSize = 1; phraseSize <= maxPhraseSize; phraseSize *= 2)
+    {
+        if (numLoops <= phraseSize + phraseSize / 2)
+        {
+            return referenceLoopPoint * phraseSize;
+        }
+    }
+
+    uint32_t numPhrases = numLoops / maxPhraseSize;
+        
+    return  referenceLoopPoint * (numPhrases + 1);
 }
 
 
@@ -370,6 +393,41 @@ void SequencerChannelOnOffToggle(uint8_t channel)
 }
 
 
+static void StateTransition(SequencerState state)
+{
+    switch(state)
+    {
+        case SEQUENCER_READY:
+        {
+            #ifdef DEBUG
+            PrintFormat("Sequencer ready\n");
+            #endif
+            sequencerState = SEQUENCER_READY;
+            break;
+        }
+        case SEQUENCER_INITIAL_RECORD:
+        {
+            #ifdef DEBUG
+            PrintFormat("Sequencer initial record\n");
+            #endif
+            sequencerState = SEQUENCER_INITIAL_RECORD;
+            break;
+        }
+        case SEQUENCER_LOOP:
+        {
+            #ifdef DEBUG
+            PrintFormat("Sequencer loop\n");
+            #endif
+            sequencerState = SEQUENCER_LOOP;
+            break;
+        }
+        default:
+            //todo Error()
+            break;   
+    }
+}
+
+
 void SequencerInputMidiEvent(MidiEvent midiEvent)
 {
     uint32_t localCurStep = curStep;
@@ -389,7 +447,11 @@ void SequencerInputMidiEvent(MidiEvent midiEvent)
             MidiEventNoteIn(midiEvent, localCurStep);
             break;
         case SEQUENCER_LOOP:
-            SequencerChannelOnOff(midiEvent.channel, false); // disable channel while writing over it
+            // Extend numSteps to the largest allowed multiple of numSteps
+            numSteps = (MAX_STEPS / numSteps) * numSteps;
+            // disable channel while writing over it
+            SequencerChannelOnOff(midiEvent.channel, false);
+            // Record midi event
             MidiEventNoteIn(midiEvent, localCurStep);
             break;    
     }
@@ -407,23 +469,27 @@ void SequencerOkEvent()
             break;
         case SEQUENCER_INITIAL_RECORD:
             numSteps = localCurStep + 1;
+            channelLoopPoints[0] = numSteps;
             PrintFormat("numSteps: %d\n", numSteps);
             StoreNotesIn();
             nextStepPreparedFlag = false;
-            StateTransition(SEQUENCER_LOOP);
             ControllerChannelShift(1, true);
+            StateTransition(SEQUENCER_LOOP);
             break;
         case SEQUENCER_LOOP:
+            // Nudge to nearest 16th of loop. (Keep in time)
             if (numNotesIn == 0)
             {
-                JumpToStep(GetNearestQuantisePoint(16, localCurStep));
+                JumpToStep(GetNextQuantisePoint(numSteps / 16, localCurStep));
             }
             else
             {
                 nextStepPreparedFlag = false;
                 uint8_t channel = ControllerGetCurrentChannel();
-                ClearChannel(channel);
+                channelLoopPoints[channel] = DetermineLoopPoint(localCurStep);
+                ClearChannel(channel); // write over whatever was stored in this channel previously
                 StoreNotesIn();
+                numSteps = channelLoopPoints[channel];
                 SequencerChannelOnOff(channel, true);
                 ControllerChannelShift(1, true);
             }
@@ -432,39 +498,58 @@ void SequencerOkEvent()
 }
 
 
+void SequencerClearEvent(uint8_t channel)
+{
+    uint32_t localCurStep = curStep;
+    uint32_t localNumSteps = numSteps;
+    uint32_t localNumNotesIn = numNotesIn;
+    
+    switch(sequencerState)
+    {
+        case SEQUENCER_READY:
+            // do nothing
+            break;
+        case SEQUENCER_INITIAL_RECORD:
+            ResetSequencer();
+            StateTransition(SEQUENCER_READY);
+            break;
+        case SEQUENCER_LOOP:
+            if (localNumNotesIn == 0)
+            {
+                ClearChannel(channel);
+                ControllerChannelShift(-1, false);
+            }
+            else
+            {
+                ClearNotesIn();
+                localNumSteps = GetOuterLoopPoint();
+                localCurStep = localCurStep % GetOuterLoopPoint();
+            }
+            break;
+    }   
+
+    numSteps = localNumSteps;
+    curStep = localCurStep;
+}
+
+
+void SequencerResetEvent()
+{
+    switch(sequencerState)
+    {
+        case SEQUENCER_READY:
+        case SEQUENCER_INITIAL_RECORD:
+        case SEQUENCER_LOOP:
+            ResetSequencer();
+            StateTransition(SEQUENCER_READY);
+            break;
+    }   
+}
+
+
 bool SequencerGetChannelOnOff(uint8_t channel)
 {
     return activeChannels[channel];    
-}
-
-
-void SequencerClear(uint8_t channel)
-{
-    // todo: incorporate into state machine
-    
-    uint8_t localNumNotesIn = numNotesIn;
-
-    if (localNumNotesIn == 0)
-    {
-        ClearChannel(channel);
-        ControllerChannelShift(-1, false);
-    }
-    else 
-    {
-        ClearNotesIn();
-    }
-    
-    if (numNotesAll == 0)
-    {
-        ResetSequencer();
-    }
-}
-
-
-void SequencerReset()
-{
-    // todo: incorporate into state machine?
-    ResetSequencer();
 }
 
 
@@ -478,6 +563,6 @@ void SequencerBackgroundTasks()
 void SequencerInit()
 {
     Timer2.attachInterrupt(Step).setPeriod(tickPeriod);
-    ResetSequencer();
+    SequencerResetEvent();
 }
 

@@ -269,7 +269,7 @@ void MainButtonsInput(uint8_t key, bool state)
         case 1:
             if (state)
             {
-                SequencerClear(channelInFocus);
+                SequencerClearEvent(channelInFocus);
             }
             break;
         case 2:
@@ -301,7 +301,7 @@ void OtherButtonsInput(uint8_t key, bool state)
                 PrintFormat("Big button pressed");
                 break;
             case 1: // Turntable
-                SequencerReset();
+                SequencerResetEvent();
                 break;
             case 2: // Roller ball
                 CycleNoteSuperSet();
