@@ -9,7 +9,7 @@
 
 //#define DEBUG
 
-#define MAX_NOTES_ALL       256    
+#define MAX_NOTES_ALL       256
 #define MAX_NOTES_IN        128
 #define MAX_MIDI_EVENTS_OUT 64
 #define MAX_STEPS           65536 //TODO: make this larger?
@@ -146,7 +146,7 @@ static void Step()
 {
     curStep = (curStep + 1) % numSteps;
     fireStepFlag = true;
-    return;    
+    return;
 }
 
 
@@ -159,13 +159,13 @@ static void PrepareNextStep()
     {
         return;
     }
-    
+
     // Store the next step locally, wrapping around to zero if we've reached the last step.
     uint32_t nextStep = (curStep + 1) % numSteps;
-   
+
     // Number of midi events staged for the next step.
     uint8_t midiEventsOutCounter = 0;
-    
+
     // Clear down the list of staged midi events.
     memset(midiEventsOut, 0, sizeof(midiEventsOut));
 
@@ -199,7 +199,7 @@ static void PrepareNextStep()
             break;
         }
     }
-    
+
     numMidiEventsOut = midiEventsOutCounter;
     nextStepPreparedFlag = true;
 }
@@ -223,12 +223,12 @@ static void FireCurrentStep()
     {
         LedOff(1, 0);
     }
-    
+
     // if this step is prepared, then output all the midi events staged in midiEventsOut
     if (nextStepPreparedFlag)
-    {         
+    {
         int localNumMidiEventsOut = numMidiEventsOut;
-        
+
         for (int midiEvent = 0; midiEvent < localNumMidiEventsOut; midiEvent++)
         {
             ControllerOutputEvent(midiEventsOut[midiEvent]);
@@ -262,13 +262,13 @@ static void ResetSequencer()
     ClearNotesAll();
     curStep = 0;
     numSteps = 0;
-    
+
     // initialise activeChannels
     for (int chan = 0; chan < NUM_CHANNELS; chan++)
     {
         activeChannels[chan] = true;
     }
-    
+
     ControllerChannelShift(NUM_CHANNELS * -1, false);
     // TODO: refresh led output
 }
@@ -278,7 +278,7 @@ static void ResetSequencer()
 static void ClearChannelNotes(uint8_t channel)
 {
     uint8_t localNumNotesAll = numNotesAll;
-    
+
     // delete notes by moving elements from the end into their position
     // and decrementing numNotesAll
     #ifdef DEBUG
@@ -389,7 +389,7 @@ void SequencerChannelOnOff(uint8_t channel, bool on)
     {
         return;
     }
-    
+
     activeChannels[channel] = on;
     ControllerOutputChannelOnOff(channel, activeChannels[channel]);
 
@@ -484,7 +484,7 @@ void SequencerInputMidiEvent(MidiEvent midiEvent)
 void SequencerOkEvent()
 {
     uint32_t localCurStep = curStep;
-    
+
     switch(sequencerState)
     {
         case SEQUENCER_READY:
@@ -519,7 +519,7 @@ void SequencerOkEvent()
                 SequencerChannelOnOff(channel, true);
                 ControllerChannelShift(1, true);
             }
-            break;    
+            break;
     }
 }
 
@@ -529,7 +529,7 @@ void SequencerClearEvent(uint8_t channel)
     uint32_t localCurStep = curStep;
     uint32_t localNumSteps = numSteps;
     uint32_t localNumNotesIn = numNotesIn;
-    
+
     switch(sequencerState)
     {
         case SEQUENCER_READY:
@@ -555,7 +555,7 @@ void SequencerClearEvent(uint8_t channel)
             localNumSteps = innerLoopLength * GetMaxNumInnerLoops();
             localCurStep = localCurStep % (innerLoopLength * GetMaxNumInnerLoops());
             break;
-    }   
+    }
 
     numSteps = localNumSteps;
     curStep = localCurStep;
@@ -572,13 +572,13 @@ void SequencerResetEvent()
             ResetSequencer();
             StateTransition(SEQUENCER_READY);
             break;
-    }   
+    }
 }
 
 
 bool SequencerGetChannelOnOff(uint8_t channel)
 {
-    return activeChannels[channel];    
+    return activeChannels[channel];
 }
 
 
@@ -594,4 +594,3 @@ void SequencerInit()
     Timer2.attachInterrupt(Step).setPeriod(tickPeriod);
     SequencerResetEvent();
 }
-
