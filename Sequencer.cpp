@@ -21,6 +21,7 @@
 #define EMAXMIDIEVENTSOUT   -2
 #define EMAXNOTESALL        -3
 #define EORPHANEDNOTEOFF    -4
+#define ENOTEOUTOFRANGE     -5
 
 
 typedef struct Note_
@@ -52,7 +53,8 @@ uint8_t numNotesIn = 0;
 uint8_t numMidiEventsOut = 0;
 uint8_t numBeats = 8;
 bool activeChannels[NUM_CHANNELS] = {};
-uint32_t channelLoopPoints[NUM_CHANNELS] = {};
+uint32_t innerLoopLength = 0;
+uint32_t channelNumInnerLoops[NUM_CHANNELS] = {};
 volatile uint32_t numSteps = 0;
 volatile uint32_t curStep = 0;
 
@@ -68,20 +70,6 @@ static void Error(int errorCode)
     // Or special midi signal?
 }
 
-
-static uint32_t GetOuterLoopPoint()
-{
-    uint32_t referenceLoopPoint = 0;
-    
-    for (int i = 0; i < NUM_CHANNELS; i++)
-    {
-        if (channelLoopPoints[i] > referenceLoopPoint)
-        {
-            referenceLoopPoint = channelLoopPoints[i];
-        }
-    }
-    return referenceLoopPoint;
-}
 
 static void ClearNotesIn()
 {
@@ -147,6 +135,7 @@ static void StoreNotesIn()
         Error(EMAXNOTESALL);
         return;
     }
+
     memcpy(&notesAll[numNotesAll], notesIn, numNotesIn * sizeof(notesIn[0]));
     numNotesAll += numNotesIn;
     ClearNotesIn();
@@ -187,7 +176,7 @@ static void PrepareNextStep()
         if (activeChannels[notesAll[note].noteOn.channel])   
         {
             // Should it be fired this step?
-            if (nextStep % channelLoopPoints[notesAll[note].noteOn.channel] == notesAll[note].noteOnStep)
+            if (nextStep % (channelNumInnerLoops[notesAll[note].noteOn.channel] * innerLoopLength) == notesAll[note].noteOnStep)
             {
                 midiEventsOut[midiEventsOutCounter] = notesAll[note].noteOn;
                 midiEventsOutCounter++;
@@ -197,7 +186,7 @@ static void PrepareNextStep()
         if (activeChannels[notesAll[note].noteOff.channel])
         {
             // Should it be fired this step?
-            if (nextStep % channelLoopPoints[notesAll[note].noteOn.channel] == notesAll[note].noteOffStep)
+            if (nextStep % (channelNumInnerLoops[notesAll[note].noteOn.channel] * innerLoopLength) == notesAll[note].noteOffStep)
             {
                 midiEventsOut[midiEventsOutCounter] = notesAll[note].noteOff;
                 midiEventsOutCounter++;
@@ -286,7 +275,7 @@ static void ResetSequencer()
 
 
 // Deletes all notes for the given channel
-static void ClearChannel(uint8_t channel)
+static void ClearChannelNotes(uint8_t channel)
 {
     uint8_t localNumNotesAll = numNotesAll;
     
@@ -308,53 +297,87 @@ static void ClearChannel(uint8_t channel)
 }
 
 
-// Divides the loop up evenly and finds the closest quantise point to given step
-static uint32_t GetNearestQuantisePoint(uint32_t quantaLength, uint32_t step)
+// Divides the steps between start and step into quanta and finds the closest quantise point to step
+static uint32_t GetNearestQuantisePoint(uint32_t start, uint32_t quantaLength, uint32_t step)
 {
-    uint32_t floor = step / quantaLength;
-    uint32_t remainder = step % quantaLength;
+    // TODO: check out of range and step > start
+    uint32_t floor = (step - start) / quantaLength;
+    uint32_t remainder = (step - start) % quantaLength;
 
     return remainder > quantaLength / 2 ? (floor + 1) * quantaLength : floor * quantaLength;  
 }
 
 
-// Divides the loop up evenly and finds the next quantise point to given step
-static uint32_t GetNextQuantisePoint(uint32_t quantaLength, uint32_t step)
+// Divides the steps between start and step up into quanta and finds the next quantise point to step
+static uint32_t GetNextQuantisePoint(uint32_t start, uint32_t quantaLength, uint32_t step)
 {
-    uint32_t floor = step / quantaLength;
+    // TODO: check out of range and step > start
+    uint32_t floor = (step - start) / quantaLength;
 
     return (floor + 1) * quantaLength;
 }
 
 
-// Divides the loop up evenly and finds the previous quantise point to given step
-static uint32_t GetPrevQuantisePoint(uint32_t quantaLength, uint32_t step)
+// Divides steps between start and step up into quanta and finds the previous quantise point to step
+static uint32_t GetPrevQuantisePoint(uint32_t start, uint32_t quantaLength, uint32_t step)
 {
-    uint32_t floor = step / quantaLength;
+    // TODO: check out of range and step > start
+    uint32_t floor = (step - start) / quantaLength;
 
     return floor * quantaLength;
 }
 
 
-static uint32_t DetermineLoopPoint(uint32_t localCurStep)
+// Shift a note a number of steps back or forth
+// NB: output pointer could be the same as input
+static void ShiftNote(Note * output, Note * input, uint32_t stepsToShift)
 {
-    uint32_t referenceLoopPoint = channelLoopPoints[0];
-        
-    uint32_t maxPhraseSize = 32;
-    uint32_t phraseSize;
-    uint32_t numLoops = GetNearestQuantisePoint(referenceLoopPoint, localCurStep) / referenceLoopPoint;
-    
-    for (phraseSize = 1; phraseSize <= maxPhraseSize; phraseSize *= 2)
+    uint32_t noteOnStep = input->noteOnStep + stepsToShift;
+    uint32_t noteOffStep = input->noteOffStep + stepsToShift;
+
+    if (noteOnStep < 0 || noteOnStep >= MAX_STEPS)
     {
-        if (numLoops <= phraseSize + phraseSize / 2)
+        Error(ENOTEOUTOFRANGE);
+        return;
+    }
+
+    if (noteOffStep < 0 || noteOffStep >= MAX_STEPS)
+    {
+        Error(ENOTEOUTOFRANGE);
+        return;
+    }
+
+    output->noteOnStep = noteOnStep;
+    output->noteOffStep = noteOffStep;
+}
+
+
+// Shift notes at the end to the start to close unwanted gap
+static void WrapNotesAround(uint32_t numInnerLoops)
+{
+    for (int i = 0; i < numNotesIn; i++)
+    {
+        if (notesIn[i].noteOffStep >= innerLoopLength * numInnerLoops)
         {
-            return referenceLoopPoint * phraseSize;
+            ShiftNote(&notesIn[i], &notesIn[i], numInnerLoops * innerLoopLength * -1);
+        }
+    }
+}
+
+
+static uint32_t GetMaxNumInnerLoops()
+{
+    uint32_t maxNumInnerLoops = 0;
+
+    for (int i = 0; i < NUM_CHANNELS; i++)
+    {
+        if (channelNumInnerLoops[i] > maxNumInnerLoops)
+        {
+            maxNumInnerLoops = channelNumInnerLoops[i];
         }
     }
 
-    uint32_t numPhrases = numLoops / maxPhraseSize;
-        
-    return  referenceLoopPoint * (numPhrases + 1);
+    return maxNumInnerLoops;
 }
 
 
@@ -469,7 +492,8 @@ void SequencerOkEvent()
             break;
         case SEQUENCER_INITIAL_RECORD:
             numSteps = localCurStep + 1;
-            channelLoopPoints[0] = numSteps;
+            innerLoopLength = numSteps;
+            channelNumInnerLoops[0] = 1;
             PrintFormat("numSteps: %d\n", numSteps);
             StoreNotesIn();
             nextStepPreparedFlag = false;
@@ -480,16 +504,18 @@ void SequencerOkEvent()
             // Nudge to nearest 16th of loop. (Keep in time)
             if (numNotesIn == 0)
             {
-                JumpToStep(GetNextQuantisePoint(numSteps / 16, localCurStep));
+                JumpToStep(GetNextQuantisePoint(0, numSteps / 16, localCurStep));
             }
             else
             {
                 nextStepPreparedFlag = false;
                 uint8_t channel = ControllerGetCurrentChannel();
-                channelLoopPoints[channel] = DetermineLoopPoint(localCurStep);
-                ClearChannel(channel); // write over whatever was stored in this channel previously
+                ClearChannelNotes(channel); // write over whatever was stored in this channel previously
+                uint32_t numInnerLoops = GetNearestQuantisePoint(notesIn[0].noteOnStep, innerLoopLength, localCurStep) / innerLoopLength; // TODO: simplify?                
+                WrapNotesAround(numInnerLoops);
+                channelNumInnerLoops[channel] = numInnerLoops;
+                numSteps = GetMaxNumInnerLoops() * innerLoopLength;
                 StoreNotesIn();
-                numSteps = channelLoopPoints[channel];
                 SequencerChannelOnOff(channel, true);
                 ControllerChannelShift(1, true);
             }
@@ -516,15 +542,18 @@ void SequencerClearEvent(uint8_t channel)
         case SEQUENCER_LOOP:
             if (localNumNotesIn == 0)
             {
-                ClearChannel(channel);
+                ClearChannelNotes(channel);
+                channelNumInnerLoops[channel] = 0;
                 ControllerChannelShift(-1, false);
             }
             else
             {
                 ClearNotesIn();
-                localNumSteps = GetOuterLoopPoint();
-                localCurStep = localCurStep % GetOuterLoopPoint();
             }
+            // Readjust curSteps and numSteps to reflect clear.
+            // This is the same for notesInClear
+            localNumSteps = innerLoopLength * GetMaxNumInnerLoops();
+            localCurStep = localCurStep % (innerLoopLength * GetMaxNumInnerLoops());
             break;
     }   
 
