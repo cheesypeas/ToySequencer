@@ -1,7 +1,5 @@
 #include <stdarg.h>
 
-#include "MIDI.h"
-
 #include "Arduino.h"
 #include "Comms.h"
 
