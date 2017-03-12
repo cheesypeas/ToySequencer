@@ -73,7 +73,7 @@ static void PrintNote(Note * note)
 
 static void DumpState()
 {
-    PrintFormat("********DUMP STATE********\n")
+    PrintFormat("********DUMP STATE********\n");
     PrintFormat("Sequencer State: %d\n", sequencerState);
     PrintFormat("\n");
     PrintFormat("notesAll (%d):\n", numNotesAll);
