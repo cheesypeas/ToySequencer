@@ -66,8 +66,6 @@ volatile bool fireStepFlag = false;
 static void Error(int errorCode)
 {
     PrintFormat("Error: %d\n", errorCode);
-    // TODO: Flash leds to signify error?
-    // Or special midi signal?
 }
 
 
