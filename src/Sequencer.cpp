@@ -499,16 +499,23 @@ void SequencerOkEvent()
             StateTransition(SEQUENCER_LOOP);
             break;
         case SEQUENCER_LOOP:
-            nextStepPreparedFlag = false;
-            uint8_t channel = ControllerGetCurrentChannel();
-            ClearChannelNotes(channel); // write over whatever was stored in this channel previously
-            uint32_t numInnerLoops = GetNearestQuantisePoint(notesIn[0].noteOnStep, innerLoopLength, localCurStep) / innerLoopLength; // TODO: simplify?                
-            WrapNotesAround(numInnerLoops);
-            channelNumInnerLoops[channel] = numInnerLoops;
-            numSteps = GetMaxNumInnerLoops() * innerLoopLength;
-            StoreNotesIn();
-            SequencerChannelOnOff(channel, true);
-            ControllerChannelShift(1, true);
+            if (numNotesIn == 0)
+            {
+                ControllerChannelShift(1, true);
+            }
+            else
+            {
+                nextStepPreparedFlag = false;
+                uint8_t channel = ControllerGetCurrentChannel();
+                ClearChannelNotes(channel); // write over whatever was stored in this channel previously
+                uint32_t numInnerLoops = GetNearestQuantisePoint(notesIn[0].noteOnStep, innerLoopLength, localCurStep) / innerLoopLength; // TODO: simplify?                
+                WrapNotesAround(numInnerLoops);
+                channelNumInnerLoops[channel] = numInnerLoops;
+                numSteps = GetMaxNumInnerLoops() * innerLoopLength;
+                StoreNotesIn();
+                SequencerChannelOnOff(channel, true);
+                ControllerChannelShift(1, true);
+            }
             break;
     }
 }
@@ -532,18 +539,15 @@ void SequencerClearEvent(uint8_t channel)
         case SEQUENCER_LOOP:
             if (localNumNotesIn == 0)
             {
-                ClearChannelNotes(channel);
-                channelNumInnerLoops[channel] = 0;
                 ControllerChannelShift(-1, false);
             }
             else
             {
                 ClearNotesIn();
+                // Readjust curSteps and numSteps to reflect clear.
+                localNumSteps = innerLoopLength * GetMaxNumInnerLoops();
+                localCurStep = localCurStep % (innerLoopLength * GetMaxNumInnerLoops());
             }
-            // Readjust curSteps and numSteps to reflect clear.
-            // This is the same for notesInClear
-            localNumSteps = innerLoopLength * GetMaxNumInnerLoops();
-            localCurStep = localCurStep % (innerLoopLength * GetMaxNumInnerLoops());
             break;
     }
 
