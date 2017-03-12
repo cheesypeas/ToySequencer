@@ -73,6 +73,7 @@ static void PrintNote(Note * note)
 
 static void DumpState()
 {
+    PrintFormat("********DUMP STATE********\n")
     PrintFormat("Sequencer State: %d\n", sequencerState);
     PrintFormat("\n");
     PrintFormat("notesAll (%d):\n", numNotesAll);
@@ -92,7 +93,7 @@ static void DumpState()
     {
         PrintFormat("%d: %s\n", i, activeChannels[i] ? "ON" : "OFF");
     }
-    PrintFormat("innerLoopLength: %d", innerLoopLength);
+    PrintFormat("innerLoopLength: %d\n", innerLoopLength);
     PrintFormat("channelNumInnerLoops:\n");
     for (int i = 0; i < NUM_CHANNELS; i++)
     {
@@ -100,6 +101,7 @@ static void DumpState()
     }
     PrintFormat("curStep: %d\n", curStep);
     PrintFormat("numSteps: %d\n", numSteps);
+    PrintFormat("********END DUMP********\n");
 }
 
 
