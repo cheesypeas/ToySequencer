@@ -146,7 +146,7 @@ static void MidiEventNoteIn(MidiEvent event, uint32_t step)
     }
     else if (event.type == MIDI_NOTE_OFF)
     {
-        for (int i; i < numNotesIn; i++)
+        for (int i = 0; i < numNotesIn; i++)
         {
             if (!notesIn[i].complete && notesIn[i].noteOn.value == event.value)
             {
