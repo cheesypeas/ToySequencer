@@ -309,7 +309,7 @@ static void ResetSequencer()
     for (int chan = 0; chan < NUM_CHANNELS; chan++)
     {
         activeChannels[chan] = true;
-        channelNumInnerLoops[chan] = true;
+        channelNumInnerLoops[chan] = 0;
     }
 
     ControllerChannelShift(NUM_CHANNELS * -1, false);
