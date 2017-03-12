@@ -499,24 +499,16 @@ void SequencerOkEvent()
             StateTransition(SEQUENCER_LOOP);
             break;
         case SEQUENCER_LOOP:
-            // Nudge to nearest 16th of loop. (Keep in time)
-            if (numNotesIn == 0)
-            {
-                JumpToStep(GetNextQuantisePoint(0, numSteps / 16, localCurStep));
-            }
-            else
-            {
-                nextStepPreparedFlag = false;
-                uint8_t channel = ControllerGetCurrentChannel();
-                ClearChannelNotes(channel); // write over whatever was stored in this channel previously
-                uint32_t numInnerLoops = GetNearestQuantisePoint(notesIn[0].noteOnStep, innerLoopLength, localCurStep) / innerLoopLength; // TODO: simplify?                
-                WrapNotesAround(numInnerLoops);
-                channelNumInnerLoops[channel] = numInnerLoops;
-                numSteps = GetMaxNumInnerLoops() * innerLoopLength;
-                StoreNotesIn();
-                SequencerChannelOnOff(channel, true);
-                ControllerChannelShift(1, true);
-            }
+            nextStepPreparedFlag = false;
+            uint8_t channel = ControllerGetCurrentChannel();
+            ClearChannelNotes(channel); // write over whatever was stored in this channel previously
+            uint32_t numInnerLoops = GetNearestQuantisePoint(notesIn[0].noteOnStep, innerLoopLength, localCurStep) / innerLoopLength; // TODO: simplify?                
+            WrapNotesAround(numInnerLoops);
+            channelNumInnerLoops[channel] = numInnerLoops;
+            numSteps = GetMaxNumInnerLoops() * innerLoopLength;
+            StoreNotesIn();
+            SequencerChannelOnOff(channel, true);
+            ControllerChannelShift(1, true);
             break;
     }
 }
