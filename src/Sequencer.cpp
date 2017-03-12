@@ -554,9 +554,10 @@ void SequencerOkEvent()
             }
             else
             {
-                nextStepPreparedFlag = false;
                 uint8_t channel = ControllerGetCurrentChannel();
-                ClearChannelNotes(channel); // write over whatever was stored in this channel previously
+                // Write over whatever was stored in this channel previously
+                ClearChannelNotes(channel);
+                // Get the loop length from first noteOn to now.
                 uint32_t numInnerLoops = GetNearestQuantisePoint(notesIn[0].noteOnStep, innerLoopLength, localCurStep) / innerLoopLength; // TODO: simplify?
                 WrapNotesAround(numInnerLoops);
                 channelNumInnerLoops[channel] = numInnerLoops;
