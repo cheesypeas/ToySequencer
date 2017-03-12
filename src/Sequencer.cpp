@@ -398,7 +398,7 @@ static void WrapNotesAround(uint32_t numInnerLoops)
 {
     for (int i = 0; i < numNotesIn; i++)
     {
-        if (notesIn[i].noteOffStep >= innerLoopLength * numInnerLoops)
+        if (notesIn[i].noteOnStep >= innerLoopLength * numInnerLoops)
         {
             ShiftNote(&notesIn[i], &notesIn[i], numInnerLoops * innerLoopLength * -1);
         }
@@ -557,7 +557,7 @@ void SequencerOkEvent()
                 nextStepPreparedFlag = false;
                 uint8_t channel = ControllerGetCurrentChannel();
                 ClearChannelNotes(channel); // write over whatever was stored in this channel previously
-                uint32_t numInnerLoops = GetNearestQuantisePoint(notesIn[0].noteOnStep, innerLoopLength, localCurStep) / innerLoopLength; // TODO: simplify?                
+                uint32_t numInnerLoops = GetNearestQuantisePoint(notesIn[0].noteOnStep, innerLoopLength, localCurStep) / innerLoopLength; // TODO: simplify?
                 WrapNotesAround(numInnerLoops);
                 channelNumInnerLoops[channel] = numInnerLoops;
                 numSteps = GetMaxNumInnerLoops() * innerLoopLength;
