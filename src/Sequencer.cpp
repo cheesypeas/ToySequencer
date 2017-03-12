@@ -335,6 +335,8 @@ static void ClearChannelNotes(uint8_t channel)
     }
 
     numNotesAll = localNumNotesAll;
+
+    channelNumInnerLoops[channel] = 0;
 }
 
 
