@@ -63,9 +63,50 @@ volatile bool nextStepPreparedFlag = false;
 volatile bool fireStepFlag = false;
 
 
+static void PrintNote(Note * note)
+{
+    PrintFormat("channel: %d, value: %d, velocity: %d\n", note->noteOn.channel, note->noteOn.value, note->noteOn.velocity);
+    PrintFormat("noteOnStep: %d\n", note->noteOnStep);
+    PrintFormat("noteOffStep: %d\n", note->noteOffStep);
+}
+
+
+static void DumpState()
+{
+    PrintFormat("Sequencer State: %d\n", sequencerState);
+    PrintFormat("\n");
+    PrintFormat("notesAll (%d):\n", numNotesAll);
+    for (int i = 0; i < numNotesAll; i++)
+    {
+        PrintNote(&notesAll[i]);
+    }
+    PrintFormat("\n");
+    PrintFormat("notesIn (%d):\n", numNotesIn);
+    for (int i = 0; i < numNotesIn; i++)
+    {
+        PrintNote(&notesIn[i]);
+    }
+    PrintFormat("\n");
+    PrintFormat("activeChannels:\n");
+    for (int i = 0; i < NUM_CHANNELS; i++)
+    {
+        PrintFormat("%d: %s\n", i, activeChannels[i] ? "ON" : "OFF");
+    }
+    PrintFormat("innerLoopLength: %d", innerLoopLength);
+    PrintFormat("channelNumInnerLoops:\n");
+    for (int i = 0; i < NUM_CHANNELS; i++)
+    {
+        PrintFormat("%d: %d\n", i, channelNumInnerLoops[i]);
+    }
+    PrintFormat("curStep: %d\n", curStep);
+    PrintFormat("numSteps: %d\n", numSteps);
+}
+
+
 static void Error(int errorCode)
 {
     PrintFormat("Error: %d\n", errorCode);
+    DumpState();
 }
 
 
@@ -446,6 +487,12 @@ static void StateTransition(SequencerState state)
             //todo Error()
             break;   
     }
+}
+
+
+void SequencerDumpState()
+{
+    DumpState();
 }
 
 

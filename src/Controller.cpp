@@ -280,7 +280,7 @@ void MainButtonsInput(uint8_t key, bool state)
         case 3:
             if (state)
             {
-                
+                SequencerDumpState();
             }
             break;            
     }

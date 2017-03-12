@@ -2,6 +2,8 @@
 
 #define NUM_CHANNELS 8
 
+void SequencerDumpState();
+
 void SequencerInputMidiEvent(MidiEvent event);
 void SequencerOkEvent();
 void SequencerClearEvent(uint8_t channel);
