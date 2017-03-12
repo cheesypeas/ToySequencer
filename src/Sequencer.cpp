@@ -301,6 +301,7 @@ static void ResetSequencer()
     Timer2.stop();
     ClearNotesIn();
     ClearNotesAll();
+    innerLoopLength = 0;
     curStep = 0;
     numSteps = 0;
 
@@ -308,6 +309,7 @@ static void ResetSequencer()
     for (int chan = 0; chan < NUM_CHANNELS; chan++)
     {
         activeChannels[chan] = true;
+        channelNumInnerLoops[chan] = true;
     }
 
     ControllerChannelShift(NUM_CHANNELS * -1, false);
