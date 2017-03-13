@@ -563,6 +563,11 @@ void SequencerOkEvent()
                 ClearChannelNotes(channel);
                 // Get the loop length from first noteOn to now.
                 uint32_t numInnerLoops = GetNearestQuantisePoint(notesIn[0].noteOnStep, innerLoopLength, localCurStep) / innerLoopLength; // TODO: simplify?
+                // Min number of loops is 1
+                if(numInnerLoops == 0)
+                {
+                    numInnerLoops = 1;
+                }
                 WrapNotesAround(numInnerLoops);
                 channelNumInnerLoops[channel] = numInnerLoops;
                 numSteps = GetMaxNumInnerLoops() * innerLoopLength;
