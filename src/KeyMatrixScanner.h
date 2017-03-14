@@ -3,7 +3,7 @@
 #define MAX_KEY_PORTS_IN     4
 #define MAX_KEY_PORTS_OUT    4
 
-#define GROUND               -1
+#define GROUND_PIN           -1
 
 typedef struct KeyState_
 {

@@ -14,7 +14,7 @@ static void ScanKeys()
         {
             for (int out = 0; out < keyMatrices[matrix].numOutPorts; out++)
             {
-                if(keyMatrices[matrix].outPorts[out] != GROUND)
+                if(keyMatrices[matrix].outPorts[out] != GROUND_PIN)
                 {
                     digitalWrite(keyMatrices[matrix].outPorts[out], LOW);
                 }
@@ -71,7 +71,3 @@ void KeyMatricesInit()
     }
     Timer1.attachInterrupt(ScanKeys).start(5000);
 }
-
-
-
-

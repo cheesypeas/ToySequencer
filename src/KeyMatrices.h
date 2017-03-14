@@ -44,7 +44,7 @@ static const KeyMatrix pianoKeys =
 static const KeyMatrix joystick = 
 {
     {JOYSTICK_IN_1, JOYSTICK_IN_2, JOYSTICK_IN_3, JOYSTICK_IN_4},
-    {GROUND},
+    {GROUND_PIN},
     4,
     1,
     4,
