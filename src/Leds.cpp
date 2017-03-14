@@ -49,20 +49,30 @@ void LedPwm()
 
         DigitalWriteIgnoreFixedPins(ledMatrices[matrix].sinkPorts[sink], HIGH);
         sink = (sink + 1) % ledMatrices[matrix].numSinks;
-        DigitalWriteIgnoreFixedPins(ledMatrices[matrix].sinkPorts[sink], LOW);
         ledMatrices[matrix].curSink = sink;
+        bool anyLedsOn = false;
 
         for (int source = 0; source < ledMatrices[matrix].numSources; source++)
         {
             int curLed = ledMatrices[matrix].ledMap[source][sink];
             if (ledMatrices[matrix].ledStates[curLed])
             {
+                anyLedsOn = true;
                 DigitalWriteIgnoreFixedPins(ledMatrices[matrix].sourcePorts[source], HIGH);
             }
             else
             {
                 DigitalWriteIgnoreFixedPins(ledMatrices[matrix].sourcePorts[source], LOW);
             }
+        }
+
+        if (anyLedsOn)
+        {
+            DigitalWriteIgnoreFixedPins(ledMatrices[matrix].sinkPorts[sink], LOW);
+        }
+        else
+        {
+            DigitalWriteIgnoreFixedPins(ledMatrices[matrix].sinkPorts[sink], HIGH);
         }
     }
 }
