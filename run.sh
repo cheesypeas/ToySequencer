@@ -1,4 +1,4 @@
-./dl_serial.sh
+#./dl_serial.sh
 platformio run --target upload
-./dl_midi.sh
+#./dl_midi.sh
 
