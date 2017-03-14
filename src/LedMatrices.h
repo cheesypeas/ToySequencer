@@ -11,8 +11,7 @@
 #define PIANO_KEY_LED_A          24
 #define PIANO_KEY_LED_B          22
 
-#define BIG_BUTTON_LED_A         52
-#define BIG_BUTTON_LED_B         47
+#define BIG_BUTTON_LED_B         51
 
 #define NUM_LED_MATRICES         2
 
@@ -33,7 +32,7 @@ static const LedMatrix pianoKeyLeds =
 
 static const LedMatrix bigButtonLed = 
 {
-    {BIG_BUTTON_LED_A},
+    {VCC_PIN},
     {BIG_BUTTON_LED_B},
     1,
     1,

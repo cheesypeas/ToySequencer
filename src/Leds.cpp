@@ -30,17 +30,28 @@ void LedFlash(int matrix, int led, int numFlashes)
     ledMatrices[matrix].numFlashes[led] = numFlashes;
 }
 
+
+void DigitalWriteIgnoreFixedPins(int pin, bool state)
+{
+    if (pin < 0)
+    {
+        return;
+    }
+    digitalWrite(pin, state);
+}
+
+
 void LedPwm()
 {
     for (int matrix = 0; matrix < NUM_LED_MATRICES; matrix++)
     {
         int sink = ledMatrices[matrix].curSink;
-        
+
         digitalWrite(ledMatrices[matrix].sinkPorts[sink], HIGH);
         sink = (sink + 1) % ledMatrices[matrix].numSinks;
         digitalWrite(ledMatrices[matrix].sinkPorts[sink], LOW);
         ledMatrices[matrix].curSink = sink;
-        
+
         for (int source = 0; source < ledMatrices[matrix].numSources; source++)
         {
             int curLed = ledMatrices[matrix].ledMap[source][sink];

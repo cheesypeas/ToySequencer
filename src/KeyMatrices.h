@@ -56,7 +56,7 @@ static const KeyMatrix joystick =
 static const KeyMatrix mainButtons = 
 {
     {MAIN_BUTTON_0, MAIN_BUTTON_1, MAIN_BUTTON_2, MAIN_BUTTON_3},
-    {GROUND},
+    {GROUND_PIN},
     4,
     1,
     4,
@@ -68,7 +68,7 @@ static const KeyMatrix mainButtons =
 static const KeyMatrix other = 
 {
     {PURPLE_BUTTON_IN, TURNTABLE_IN, ROLLER_IN},
-    {GROUND},
+    {GROUND_PIN},
     3,
     1,
     3,
@@ -84,5 +84,3 @@ static KeyMatrix keyMatrices[NUM_KEY_MATRICES] =
     mainButtons,
     other,
 };
-
-

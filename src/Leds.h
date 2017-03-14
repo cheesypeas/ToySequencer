@@ -3,6 +3,9 @@
 #define MAX_SOURCE_PORTS   4
 #define MAX_SINK_PORTS     2
 
+#define GROUND_PIN         -1
+#define VCC_PIN            -2
+
 
 typedef struct LedMatrix_
 {
