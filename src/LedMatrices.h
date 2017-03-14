@@ -11,7 +11,7 @@
 #define PIANO_KEY_LED_A          24
 #define PIANO_KEY_LED_B          22
 
-#define BIG_BUTTON_LED_B         46
+#define BIG_BUTTON_LED_B         52
 
 #define NUM_LED_MATRICES         2
 
