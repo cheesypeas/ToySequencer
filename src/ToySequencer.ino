@@ -39,8 +39,8 @@ void StartupSequence()
         }
         LedOnOff(0, i, false);
         LedOnOff(0, 7 - i, false);
-        delay(500);
     }
+    delay(500);
 }
 
 
