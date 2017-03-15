@@ -8,10 +8,12 @@
 
 //#define DEBUG
 
-#define MAX_NOTES_ALL       256
-#define MAX_NOTES_IN        128
-#define MAX_MIDI_EVENTS_OUT 64
-#define MAX_STEPS           65536 //TODO: make this larger?
+#define MAX_NOTES_ALL          256
+#define MAX_NOTES_IN           128
+#define MAX_MIDI_EVENTS_OUT    64
+#define MAX_STEPS              65536 //TODO: make this larger?
+#define NUM_QUANTISE_DIVISORS  5
+#define NO_QUANTISE            -1
 
 #define INVALID_STEP        MAX_STEPS
 
@@ -30,6 +32,7 @@ typedef struct Note_
     MidiEvent noteOff;
     uint32_t noteOffStep;
     bool complete;
+    uint32_t quantiseOffset;
 }Note;
 
 enum SequencerState
@@ -41,6 +44,8 @@ enum SequencerState
 
 // Constants
 const uint32_t tickPeriod  = 2000; //us
+const int8_t quantiseDivisors[NUM_QUANTISE_DIVISORS] = {NO_QUANTISE, 8, 4, 2, 1};
+
 
 // State Variables
 volatile SequencerState sequencerState = SEQUENCER_READY;
@@ -55,6 +60,7 @@ bool activeChannels[NUM_CHANNELS] = {};
 uint32_t innerLoopLength = 0;
 uint32_t channelNumInnerLoops[NUM_CHANNELS] = {};
 uint32_t channelLoopOffset[NUM_CHANNELS] = {};
+uint32_t channelQuantiseDivisor[NUM_CHANNELS] = {};
 volatile uint32_t numSteps = 0;
 volatile uint32_t curStep = 0;
 
@@ -144,6 +150,7 @@ static void MidiEventNoteIn(MidiEvent event, uint32_t step)
                 {},
                 step,  // Set to same as noteOnStep as placeholder
                 false,
+                0,
             };
             notesIn[numNotesIn] = noteIn;
             numNotesIn++;
@@ -261,8 +268,8 @@ static void PrepareNextStep()
         // Check note on event for active channel
         if (activeChannels[channel])
         {
-            // Note offset allows smaller loops to repeat within larger loops
-            uint32_t noteOffset = (channelLoopOffset[channel] * innerLoopLength);
+            // loopOffset and quantiseOffset
+            uint32_t noteOffset = channelLoopOffset[channel] * innerLoopLength + notesAll[note].quantiseOffset;
 
             // Should noteOn be fired this step?
             if (nextStep == (notesAll[note].noteOnStep + noteOffset) % numSteps)
@@ -468,6 +475,22 @@ static void WrapNotesAround(uint32_t numInnerLoops)
         if (notesIn[i].noteOnStep >= innerLoopLength * numInnerLoops)
         {
             ShiftNote(&notesIn[i], &notesIn[i], numInnerLoops * innerLoopLength * -1);
+        }
+    }
+}
+
+
+static void ApplyQuantisation(uint8_t channel)
+{
+    uint8_t quantiseDivisor = (channelQuantiseDivisor[channel] + 1) % NUM_QUANTISE_DIVISORS;
+
+    for (int i = 0; i < numNotesAll; i++)
+    {
+        if (notesAll[i].noteOn.channel == channel)
+        {
+            uint32_t numInnerLoops = channelNumInnerLoops[channel];
+            uint32_t quantisedStep = GetNearestQuantisePoint(0, quantiseDivisor * numInnerLoops, numInnerLoops * innerLoopLength);
+            notesAll[i].quantiseOffset = quantisedStep - notesAll[i].noteOnStep;
         }
     }
 }
@@ -679,6 +702,12 @@ void SequencerResetEvent()
             StateTransition(SEQUENCER_READY);
             break;
     }
+}
+
+
+void SequencerQuantise(uint8_t channel)
+{
+    ApplyQuantisation(channel);
 }
 
 
