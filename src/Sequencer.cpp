@@ -217,6 +217,33 @@ static uint32_t GetMaxNumInnerLoops()
 }
 
 
+static uint32_t DeduplicateMidiEvents(MidiEvent * events, uint32_t numEvents)
+{
+    // TODO: get rid of the noteOff events too
+    if (numEvents > 1)
+    {
+       PrintFormat("duplicates\n");
+    }
+    for (int i = 0; i < numEvents; i++)
+    {
+        for (int j = i + 1; j < numEvents; j++)
+        {
+            // If there's a duplicate
+            if (events[i].value == events[j].value && events[i].channel == events[i].channel)
+            {
+                // Then delete it by shifting the rest of the entries down one
+                for (int k = j; k < numEvents; k++)
+                {
+                   events[k] = events[k + 1];
+                }
+                numEvents--;
+            }
+        }
+    }
+    return numEvents;
+}
+
+
 // Find all the midi events in notesAll which should be fired in the next step and 
 // stage them in midiEventsOut, ready to be fired.
 static void PrepareNextStep()
@@ -292,7 +319,7 @@ static void PrepareNextStep()
         }
     }
 
-    numMidiEventsOut = midiEventsOutCounter;
+    numMidiEventsOut = DeduplicateMidiEvents(midiEventsOut, midiEventsOutCounter);
     nextStepPreparedFlag = true;
 }
 
