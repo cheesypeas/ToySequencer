@@ -488,9 +488,16 @@ static void ApplyQuantisation(uint8_t channel)
     {
         if (notesAll[i].noteOn.channel == channel)
         {
-            uint32_t numInnerLoops = channelNumInnerLoops[channel];
-            uint32_t quantisedStep = GetNearestQuantisePoint(0, quantiseDivisor * numInnerLoops, numInnerLoops * innerLoopLength);
-            notesAll[i].quantiseOffset = quantisedStep - notesAll[i].noteOnStep;
+            if (quantiseDivisor == NO_QUANTISE)
+            {
+                notesAll[i].quantiseOffset = 0;
+            }
+            else
+            {
+                uint32_t numInnerLoops = channelNumInnerLoops[channel];
+                uint32_t quantisedStep = GetNearestQuantisePoint(0, (numInnerLoops * innerLoopLength) / quantiseDivisor, numInnerLoops * innerLoopLength);
+                notesAll[i].quantiseOffset = quantisedStep - notesAll[i].noteOnStep;
+            }
         }
     }
 }
