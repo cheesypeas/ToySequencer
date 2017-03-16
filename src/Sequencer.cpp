@@ -12,7 +12,7 @@
 #define MAX_NOTES_IN           128
 #define MAX_MIDI_EVENTS_OUT    64
 #define MAX_STEPS              65536 //TODO: make this larger?
-#define NUM_QUANTISE_DIVISORS  5
+#define NUM_QUANTISE_DIVISORS  6
 #define NO_QUANTISE            -1
 
 #define INVALID_STEP        MAX_STEPS
@@ -23,7 +23,6 @@
 #define EMAXNOTESALL        -3
 #define EORPHANEDNOTEOFF    -4
 #define ENOTEOUTOFRANGE     -5
-
 
 typedef struct Note_
 {
@@ -44,7 +43,7 @@ enum SequencerState
 
 // Constants
 const uint32_t tickPeriod  = 2000; //us
-const int8_t quantiseDivisors[NUM_QUANTISE_DIVISORS] = {NO_QUANTISE, 8, 4, 2, 1};
+const int8_t quantiseDivisors[NUM_QUANTISE_DIVISORS] = {NO_QUANTISE, 16, 8, 4, 2, 1};
 
 
 // State Variables
@@ -68,7 +67,6 @@ volatile uint32_t curStep = 0;
 volatile bool nextStepPreparedFlag = false;
 volatile bool fireStepFlag = false;
 
-
 static void PrintNote(Note * note)
 {
     PrintFormat("channel: %d, value: %d, velocity: %d\n", note->noteOn.channel, note->noteOn.value, note->noteOn.velocity);
@@ -79,7 +77,7 @@ static void PrintNote(Note * note)
 
 static void DumpState()
 {
-    PrintFormat("********DUMP STATE********\n\n\n\n"); // The extra \n's are padding to prevent an alignment error TODO: Get to the bottom of this!
+    PrintFormat("********DUMP STATE********\n\n\n"); // The extra \n's are padding to prevent an alignment error TODO: Get to the bottom of this!
     PrintFormat("Sequencer State: %d\n", sequencerState);
     PrintFormat("\n");
     PrintFormat("notesAll (%d):\n", numNotesAll);
@@ -501,7 +499,13 @@ static void ApplyQuantisation(uint8_t channel)
             }
         }
     }
-
+    if (quantiseDivisorIndex == 0)
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            LedFlash(0, i, 3);
+        }
+    }
     channelQuantiseDivisorIndex[channel] = quantiseDivisorIndex;
 }
 
