@@ -12,6 +12,7 @@ void SequencerResetEvent();
 void SequencerChannelOnOffToggle(uint8_t channel);
 bool SequencerGetChannelOnOff(uint8_t channel);
 void SequencerRepeaterOnOff(bool on);
+void SequencerQuantise(uint8_t channel);
 
 void SequencerBackgroundTasks();
 void SequencerInit();

@@ -280,7 +280,10 @@ void MainButtonsInput(uint8_t key, bool state)
         case 3:
             if (state)
             {
+                SequencerQuantise(channelInFocus);
+                #ifdef DEBUG
                 SequencerDumpState();
+                #endif
             }
             break;            
     }
