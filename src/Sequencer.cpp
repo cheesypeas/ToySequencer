@@ -383,12 +383,13 @@ static void ResetSequencer()
     curStep = 0;
     numSteps = 0;
 
-    // initialise activeChannels
+    // initialise channel variables
     for (int chan = 0; chan < NUM_CHANNELS; chan++)
     {
         activeChannels[chan] = true;
         channelNumInnerLoops[chan] = 0;
         channelLoopOffset[chan] = 0;
+        channelQuantiseDivisorIndex[chan] = 0;
     }
 
     ControllerChannelShift(NUM_CHANNELS * -1, false);
@@ -417,8 +418,10 @@ static void ClearChannelNotes(uint8_t channel)
 
     numNotesAll = localNumNotesAll;
 
+    activeChannels[channel] = true;
     channelNumInnerLoops[channel] = 0;
     channelLoopOffset[channel] = 0;
+    channelQuantiseDivisorIndex[channel] = 0;
 }
 
 
