@@ -662,7 +662,6 @@ void SequencerOkEvent()
             PrintFormat("numSteps: %d\n", numSteps);
             StoreNotesIn();
             nextStepPreparedFlag = false;
-            ControllerChannelShift(1, true);
             StateTransition(SEQUENCER_LOOP);
             break;
         case SEQUENCER_LOOP:
@@ -693,7 +692,6 @@ void SequencerOkEvent()
                 numSteps = maxNumInnerLoops * innerLoopLength;
                 StoreNotesIn();
                 SequencerChannelOnOff(channel, true);
-                ControllerChannelShift(1, true);
             }
             break;
     }
