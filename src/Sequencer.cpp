@@ -220,9 +220,9 @@ static uint32_t GetMaxNumInnerLoops()
 static uint32_t DeduplicateMidiEvents(MidiEvent * events, uint32_t numEvents)
 {
     // TODO: get rid of the noteOff events too
-    for (int i = 0; i < numEvents; i++)
+    for (uint32_t i = 0; i < numEvents; i++)
     {
-        for (int j = i + 1; j < numEvents; j++)
+        for (uint32_t j = i + 1; j < numEvents; j++)
         {
             // If there's a duplicate
             if (events[i].value == events[j].value && events[i].channel == events[i].channel)
@@ -358,15 +358,6 @@ static void FireCurrentStep()
 }
 
 
-static void JumpToStep(uint32_t st)
-{
-    nextStepPreparedFlag = false;
-    curStep = abs(st - 1) % numSteps; // go to previous step to allow step to be prepared
-
-    PrintFormat("Jumping to step %d\n", curStep);
-}
-
-
 static void ResetSequencer()
 {
     Timer2.stop();
@@ -426,26 +417,6 @@ static uint32_t GetNearestQuantisePoint(uint32_t start, uint32_t quantaLength, u
     uint32_t remainder = (step - start) % quantaLength;
 
     return remainder > quantaLength / 2 ? (floor + 1) * quantaLength : floor * quantaLength;  
-}
-
-
-// Divides the steps between start and step up into quanta and finds the next quantise point to step
-static uint32_t GetNextQuantisePoint(uint32_t start, uint32_t quantaLength, uint32_t step)
-{
-    // TODO: check out of range and step > start
-    uint32_t floor = (step - start) / quantaLength;
-
-    return (floor + 1) * quantaLength;
-}
-
-
-// Divides steps between start and step up into quanta and finds the previous quantise point to step
-static uint32_t GetPrevQuantisePoint(uint32_t start, uint32_t quantaLength, uint32_t step)
-{
-    // TODO: check out of range and step > start
-    uint32_t floor = (step - start) / quantaLength;
-
-    return floor * quantaLength;
 }
 
 
@@ -719,8 +690,8 @@ void SequencerClearEvent(uint8_t channel)
             else
             {
                 ClearNotesIn();
-                // Readjust curSteps and numSteps to reflect clear.
             }
+            // Readjust curSteps and numSteps to reflect clear.
             localNumSteps = innerLoopLength * GetMaxNumInnerLoops();
             localCurStep = localCurStep % (innerLoopLength * GetMaxNumInnerLoops());
             break;

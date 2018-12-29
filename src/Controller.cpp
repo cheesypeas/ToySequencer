@@ -143,32 +143,6 @@ void PianoKeyInput(uint8_t key, bool state)
 }
 
 
-// Shift the note set of the channel in focus up or down
-static void SetOfNotesShift(int8_t shift)
-{
-    int8_t channel = channelInFocus;
-    int8_t noteSet = noteSetInFocus;
-
-    //TODO: if piano key pressed do something sensible like eg return and ignore press
-    
-    noteSet += shift;
-    if (noteSet >= NUM_NOTE_SETS)
-    {
-        noteSet = NUM_NOTE_SETS - 1;
-    }
-    else if (noteSet < 0)
-    {
-        noteSet = 0;
-    }
-       
-    noteSetInFocus = noteSet;
-    RefreshLedOutput();
-    #ifdef DEBUG
-    PrintFormat("Note Set shift: noteSet: %d, channel: %d\n", noteSetInFocus, channelInFocus);
-    #endif
-}
-
-
 void ControllerChannelShift(int8_t shift, bool wraparound)
 {
     int8_t channel = channelInFocus;
