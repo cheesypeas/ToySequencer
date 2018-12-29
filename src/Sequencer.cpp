@@ -386,7 +386,7 @@ static void ClearChannelNotes(uint8_t channel)
 {
     uint8_t localNumNotesAll = numNotesAll;
 
-    // delete notes by moving elements from the end into their position
+    // delete notes by moving notes from the end of notesAll into their position
     // and decrementing numNotesAll
     #ifdef DEBUG
     PrintFormat("Clear down channel %d\n", channel);
