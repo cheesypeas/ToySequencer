@@ -503,6 +503,8 @@ static void WrapNotesAround(uint32_t numInnerLoops)
 
 static void ApplyQuantisation(uint8_t channel)
 {
+    channel--; // work on the previous channel
+
     uint8_t quantiseDivisorIndex = (channelQuantiseDivisorIndex[channel] + 1) % NUM_QUANTISE_DIVISORS;
 
     for (int i = 0; i < numNotesAll; i++)
@@ -655,12 +657,13 @@ void SequencerOkEvent()
             PrintFormat("numSteps: %d\n", numSteps);
             StoreNotesIn();
             nextStepPreparedFlag = false;
+            ControllerChannelShift(1, true);
             StateTransition(SEQUENCER_LOOP);
             break;
         case SEQUENCER_LOOP:
             if (numNotesIn == 0)
             {
-                ControllerChannelShift(1, true);
+                curStep = GetNearestQuantisePoint(0, innerLoopLength, localCurStep);
             }
             else
             {
@@ -685,6 +688,7 @@ void SequencerOkEvent()
                 numSteps = maxNumInnerLoops * innerLoopLength;
                 StoreNotesIn();
                 SequencerChannelOnOff(channel, true);
+                ControllerChannelShift(1, true);
             }
             break;
     }
@@ -709,15 +713,16 @@ void SequencerClearEvent(uint8_t channel)
         case SEQUENCER_LOOP:
             if (localNumNotesIn == 0)
             {
+                ClearChannelNotes(channel - 1);
                 ControllerChannelShift(-1, false);
             }
             else
             {
                 ClearNotesIn();
                 // Readjust curSteps and numSteps to reflect clear.
-                localNumSteps = innerLoopLength * GetMaxNumInnerLoops();
-                localCurStep = localCurStep % (innerLoopLength * GetMaxNumInnerLoops());
             }
+            localNumSteps = innerLoopLength * GetMaxNumInnerLoops();
+            localCurStep = localCurStep % (innerLoopLength * GetMaxNumInnerLoops());
             break;
     }
 
