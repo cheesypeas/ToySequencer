@@ -237,6 +237,29 @@ static uint32_t DeduplicateMidiEvents(MidiEvent * events, uint32_t numEvents)
 }
 
 
+static void UpdateLoopVariables(uint32_t nextStep)
+{
+    uint32_t curLoop = nextStep / innerLoopLength;
+    uint32_t numLoopsTotal = numSteps / innerLoopLength;
+
+    for (int chan = 0; chan < NUM_CHANNELS; chan++)
+    {
+        uint32_t loopOffset = channelLoopOffset[chan];
+        uint32_t numInnerLoops = channelNumInnerLoops[chan];
+
+        if ((loopOffset + numInnerLoops) % numLoopsTotal == curLoop)
+        {
+            loopOffset += numInnerLoops;
+            PrintFormat("Chan %d,loopOffset: %d\n", chan, loopOffset % (numSteps / innerLoopLength));
+        }
+        loopOffset = loopOffset % (numSteps / innerLoopLength);
+
+        channelLoopOffset[chan] = loopOffset;
+        channelNumInnerLoops[chan] = numInnerLoops;
+    }
+}
+
+
 // Find all the midi events in notesAll which should be fired in the next step and 
 // stage them in midiEventsOut, ready to be fired.
 static void PrepareNextStep()
@@ -258,24 +281,7 @@ static void PrepareNextStep()
 
     if (nextStep % innerLoopLength == 0)
     {
-        uint32_t curLoop = nextStep / innerLoopLength;
-        uint32_t numLoopsTotal = numSteps / innerLoopLength;
-
-        for (int chan = 0; chan < NUM_CHANNELS; chan++)
-        {
-            uint32_t loopOffset = channelLoopOffset[chan];
-            uint32_t numInnerLoops = channelNumInnerLoops[chan];
-
-            if ((loopOffset + numInnerLoops) % numLoopsTotal == curLoop)
-            {
-                loopOffset += numInnerLoops;
-                PrintFormat("Chan %d,loopOffset: %d\n", chan, loopOffset % (numSteps / innerLoopLength));
-            }
-            loopOffset = loopOffset % (numSteps / innerLoopLength);
-
-            channelLoopOffset[chan] = loopOffset;
-            channelNumInnerLoops[chan] = numInnerLoops;
-        }
+        UpdateLoopVariables(nextStep);
     }
 
     // Find midi events in notesAll which should be fired in the next step and stage them in midiEventsOut
@@ -694,6 +700,7 @@ void SequencerClearEvent(uint8_t channel)
             // Readjust curSteps and numSteps to reflect clear.
             localNumSteps = innerLoopLength * GetMaxNumInnerLoops();
             localCurStep = localCurStep % localNumSteps;
+            UpdateLoopVariables(localCurStep);
             break;
     }
 
