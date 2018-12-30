@@ -700,12 +700,12 @@ void SequencerClearEvent(uint8_t channel)
             // Readjust curSteps and numSteps to reflect clear.
             localNumSteps = innerLoopLength * GetMaxNumInnerLoops();
             localCurStep = localCurStep % localNumSteps;
-            UpdateLoopVariables(localCurStep);
             break;
     }
 
     numSteps = localNumSteps;
     curStep = localCurStep;
+    UpdateLoopVariables(curStep + 1);
 }
 
 
